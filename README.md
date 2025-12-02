@@ -54,41 +54,52 @@ Essa arquitetura é reforçada pelos seguintes aspectos:
 
 #### Vantagens para um MVP
 
-1. **Velocidade de desenvolvimento**: equipes pequenas conseguem evoluir rapidamente sem overhead arquitetural.
-2. **Simplicidade operacional**: deploy único, sem orquestração de serviços.
-3. **Baixo custo**: reduz o esforço de manutenção inicial e evita complexidade prematura.
-4. **Menos pontos de falha**: centralização facilita testes e controle de versão.
+1. **Velocidade de desenvolvimento**: Equipes pequenas conseguem evoluir rapidamente sem overhead arquitetural,  reduzindo a complexidade inicial do projeto. Isso possibilita uma entrega mais rápida para testar se o _MVP_ atende às necessidades.
+2. **Simplicidade operacional**: Deploy único, sem orquestração de serviços.
+3. **Baixo custo**: Reduz o esforço de manutenção inicial e evita complexidade prematura.
+4. **Menos pontos de falha**: Centralização facilita testes e controle de versão, assim como reduz a latência entre serviços, pelo fato de não existir comunicação em rede entre diferentes componentes.
+5. **Debugging facilitado**: Como toda a lógica se encontra em um único lugar, o rastreamento de bugs e inconsistências é mais simples em aplicações menores como um _MVP_.
 
 #### Desvantagens em evolução e escala
 
-1. **Escalabilidade limitada**: não é possível escalar partes específicas de forma independente.
-2. **Deploy arriscado**: qualquer alteração requer redistribuição da aplicação inteira.
-3. **Acoplamento entre domínios**: mudanças em uma área podem afetar outras.
-4. **Complexidade crescente**: com o tempo tende a se tornar um monólito rígido, de difícil manutenção.
-5. **Dificuldade de migração**: a separação posterior é mais custosa do que projetar módulos desde o início.
+1. **Escalabilidade limitada**: Não é possível escalar partes específicas de forma independente.
+2. **Deploy arriscado**: Qualquer alteração requer redistribuição da aplicação inteira.
+3. **Acoplamento entre domínios**: Mudanças em uma área podem afetar outras.
+4. **Complexidade crescente**: Com o tempo tende a se tornar um monólito rígido, de difícil manutenção.
+5. **Dificuldade de migração**: A separação posterior é mais custosa do que projetar módulos desde o início.
 
-Dessa forma, embora o monólito seja adequado para o escopo de um MVP, ele impõe desafios significativos quando a aplicação demanda escalabilidade, governança modular e evolução de longo prazo.
+Dessa forma, embora o monólito seja adequado para o escopo de um _MVP_, ele impõe desafios significativos quando a aplicação demanda escalabilidade, governança modular e evolução de longo prazo. Porém considerando o contexto da proposta, iniciar com uma arquitetura monolítica não é apenas aceitável, é recomendado para o MVP. O foco desta fase deve estar em validar se existe demanda real pelo produto, não em construir a arquitetura perfeita.
 
 ---
 
 ### 1.3 Leia e compreenda os 12 Fatores (12-Factor App) e identifique quais deles a aplicação já atende e quais precisariam de ajustes para um ambiente de produção mais robusto
 
+Antes de avaliarmos se a aplicação atende ou não aos princípios do **12-Factor App**, precisamos entender o que são esses fatores e por que eles existem. O _Twelve-Factor App_ é uma metodologia criada para orientar a construção de aplicações modernas, especialmente aplicações entregues como serviço (Software as a Service – SaaS).
+
+#### A ideia é permitir que a aplicação
+
+1. Seja fácil de configurar e manter.
+2. Tenha alta portabilidade entre máquinas e ambientes.
+3. Funcione bem em plataformas de nuvem.
+4. Reduza diferenças entre desenvolvimento e produção.
+5. Escale de forma previsível e segura.
+
 A tabela abaixo analisa o alinhamento da aplicação aos princípios do **12-Factor App**, padrão amplamente adotado para aplicações modernas, especialmente em nuvem.
 
-| Fator | Atende | Observações Técnicas |
-|-------|--------|-----------------------|
-| **1. Código Base** | Atende parcialmente | Um único repositório contém toda a aplicação, adequado para monólitos. Contudo, não há estrutura modular clara. |
-| **2. Dependências** | Não atende | Dependências não são explicitamente declaradas de forma isolada ou versionadas conforme boas práticas. |
-| **3. Configurações** | Não atende | A aplicação não utiliza variáveis de ambiente para configuração; ajustes são feitos diretamente no código. |
-| **4. Serviços de Apoio** | Atende parcialmente | Utiliza serviços externos, porém sem desacoplamento formal via configuração externa. |
-| **5. Build, Release e Run** | Não atende | Não há separação efetiva entre fases de construção, release e execução; o ciclo é acoplado. |
-| **6. Processos** | Atende parcialmente | O processo é único e stateless na prática, porém sem definição explícita para execução concorrente. |
-| **7. Vínculo de Portas** | Atende | A aplicação expõe sua própria porta, permitindo execução autônoma. |
-| **8. Concorrência** | Atende parcialmente | O modelo de processo único limita concorrência. Escala horizontal não é trivial. |
-| **9. Descarte** | Não atende completamente | Não há mecanismos de shutdown gracioso nem gestão de processos formalizada. |
-| **10. Dev/Prod Parity** | Não atende | Não há equivalência adequada entre ambientes; configurações fixas e ausência de padrões de ambiente prejudicam o alinhamento. |
-| **11. Logs** | Atende parcialmente | Logs são emitidos via stdout, conforme recomendado, porém sem formatação ou estrutura tratável. |
-| **12. Administração de Processos** | Não atende | Não existem processos administrativos executáveis ou segregados. |
+| Fator | Definição | Atende | Observações Técnicas |
+|-------|-----------|--------|----------------------|
+| **1. Codebase** (Base de Código) | Uma única base de código versionada, podendo gerar múltiplos deploys | Atende | A aplicação possui um único repositório Git, mas é o suficiente para garantir rastreabilidade |
+| **2. Dependencies** (Dependências) | Declare e isole dependências de forma explícita | Atende | As dependências estão em um arquivo aparte, requirements.txt. Sendo declaradas as versões exatas de cada dependência. |
+| **3. Config** (Configurações) | Armazene as configurações no ambiente, não no código | Atende parcialmente | Variáveis críticas como credenciais e parâmetros de banco são externalizadas, mas parte da configuração está fixa no código ou depende de defaults como a porta de execução. |
+| **4. Backing Services** (Serviços de Apoio) | Trate serviços externos como recursos plugáveis | Atende | Usa o Banco PostgreSQL como serviço anexado via configuração. |
+| **5. Build, Release, Run** | Separe claramente as etapas de build, release e execução | Não atende | Apesar do Dockerfile permitir um processo de build, a aplicação não possui pipeline ou mecanismos formais que separem build, release e run. O ciclo é acoplado. |
+| **6. Processes** (Processos) | Executar como processos stateless, sem guardar estado local | Atende | A aplicação não guarda dados na memória, todos os dados ficam em banco, se reiniciar a aplicação, não se perde nada. |
+| **7. Port Binding** | Expor o serviço via port binding próprio | Atende parcialmente | A porta 5000 está fixa no código, não pode mudar a porta sem alterar o código, deveria ser uma variável de ambiente PORT. Mas como será rodado em Docker, a configuração permite rodar em outra porta. EX docker run -p 8080:5000 togglemaster |
+| **8. Concurrency** (Concorrência) | Escalar através de múltiplos processos | Atende parcialmente | O monólito pode escalar com múltiplas instâncias (Docker, EC2), porém o design não facilita escalabilidade granular ou paralelismo interno. |
+| **9. Disposability** (Descartabilidade) | Processos devem iniciar e parar rapidamente, com shutdown gracioso | Atende parcialmente | A aplicação inicia rapidamente e ao encerrar, o Gunicorn faz graceful shutdown básico, aguardando um breve período para que possíveis requisições terminem. |
+| **10. Dev/Prod Parity** | Manter ambientes de desenvolvimento e produção o mais similares possível | Atende | Mesmo o ambiente de Dev e Prod serem diferentes, já que um roda local e outro dentro da AWS, pois irá rodar dentro de um docker, assim criando condições iguais para ambos os ambientes. |
+| **11. Logs** | Tratar logs como fluxo de eventos contínuos | Atende parcialmente | Logs são enviados ao stdout, o que é recomendado. Porém, não possuem estrutura consistente, metadados ou integração fácil com agregadores. |
+| **12. Admin Processes** | Executar operações administrativas como processos separados | Atende parcialmente | Tem comandos CLI como por exemplo,  para inicializar banco com flask init-db. Mas não tem um sistema de migrations. |
 
 **Conclusão geral**: A aplicação atende parcialmente alguns fatores básicos (porta, logs simples, repositório único), mas carece de práticas essenciais para operação em nuvem, como externalização de configurações, modularização de dependências e paridade entre ambientes. Esses fatores tornam necessária uma reestruturação para um ambiente de produção robusto.
 
