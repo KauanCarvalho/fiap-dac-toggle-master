@@ -10,7 +10,7 @@ Turma: DevOps e Arquitetura Cloud Pós Tech — **2DCLT**.
 |------|----|
 | Guilherme Correa Camargo | 369954 |
 | Kauan Carvalho Calasans | 370203 |
-| Pedro Henrique Coittinho Marcondes de Andrade | xxxxxxxx |
+| Pedro Henrique Coittinho Marcondes de Andrade | 369367 |
 
 ---
 
@@ -36,6 +36,8 @@ Para facilitar a validação, um [script](./testdata/test-endpoints.sh) de teste
 [x] Listagem final validando o estado atualizado.
 
 Esse mesmo script será utilizado no ambiente de **"produção" na cloud**, validando consistência entre ambientes.
+
+https://github.com/user-attachments/assets/d7cc8f76-9688-4c4b-915b-ba3333e4cde8
 
 ---
 
