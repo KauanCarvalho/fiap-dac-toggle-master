@@ -113,7 +113,103 @@ A tabela abaixo analisa o alinhamento da aplicação aos princípios do **12-Fac
 
 ### 2.2 Faça uma estimativa de custo mensal para essa arquitetura usando a Calculadora de Preços da AWS
 
-{TODO}
+A estimativa foi baseada na arquitetura mínima necessária para executar a aplicação [toggle master monolith](https://github.com/dougls/toggle-master-monolith) com baixa latência e persistência confiável, utilizando:
+
+- 1 instância EC2 para o monólito.
+- 1 instância RDS PostgreSQL.
+- Itens obrigatórios de rede (gratuitos).
+
+[Estimativa oficial](https://calculator.aws/#/estimate?id=0a109df2fe24e5de3f7b959e1fbe44eeccee9150).  
+
+---
+
+### Tabela de Custos Mensais
+
+| Serviço | Configuração | Custo Mensal |
+|--------|--------------|--------------|
+| **Amazon EC2** | t3.micro, Linux, 20GB gp3 | **$15.48** |
+| **RDS PostgreSQL** | db.t4g.micro, Single-AZ, 20GB gp3 | **$43.40** |
+| **Transferência de Dados** | 1GB para internet | **$0.09** |
+| **Itens obrigatórios gratuitos** | VPC, Subnets, SGs, Route Tables, IAM, IGW, CloudWatch básico | **$0.00** |
+| **Total Estimado** | — | **$58.97 / mês** |
+
+---
+
+## 2.3.1 Justificativa da Escolha dos Serviços (com prós e contras)
+
+### **EC2 – t3.micro**
+
+Instância para rodar o _app_.
+
+#### Prós
+
+- Custo baixo.
+- Bom para workloads pequenos.
+- CPU creditada (burst) ajuda em picos.
+
+#### Contras
+
+- 1 GB RAM impõe limites
+- É ponto único de falha
+- Região São Paulo é mais cara do que us-east-1
+
+---
+
+### RDS PostgreSQL – db.t4g.micro (Single-AZ)
+
+Banco gerenciado com storage GP3.
+
+#### Prós
+
+- Alta confiabilidade
+- Backup automático incluído
+- Storage escalável
+- Integração simples com Go
+
+#### Contras
+
+- É o componente mais caro da solução
+- Single-AZ não possui failover automático
+- Armazenamento I/O impacta custo final
+
+---
+
+### Rede e Itens Obrigatórios (gratuitos)
+
+Inclui: VPC, Subnets, Security Groups, Route Tables, Internet Gateway, IAM e CloudWatch básico.
+
+#### Prós
+
+- Não geram custo adicional
+- Conjunto mínimo necessário para operar a arquitetura
+
+#### Contras
+
+- Não substituem serviços pagos como NAT Gateway ou ALB caso o projeto cresça
+- Exigem configuração manual ou via IaC
+
+---
+
+## 2.3.2 Conclusão da Estimativa
+
+O valor final aproximado de **$58.97/mês** em São Paulo reflete uma arquitetura mínima, porém funcional.  
+
+A escolha **privilegia**:
+
+- Baixa latência regional  
+- Simplicidade operacional  
+- Custo controlado  
+- Infraestrutura gerenciada sempre que possível  
+
+A **estrutura pode ser expandida** futuramente com:
+
+- Auto Scaling  
+- Load Balancer (ALB)  
+- RDS Proxy  
+- Subnets privadas + NAT Gateway  
+- TLS/HTTPS gerenciado  
+
+Sem alterar a lógica da aplicação.
 
 ---
 
