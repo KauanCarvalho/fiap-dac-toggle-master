@@ -20,20 +20,20 @@ Turma: DevOps e Arquitetura Cloud Pós Tech — **2DCLT**.
 
 A aplicação [toggle master monolith](https://github.com/dougls/toggle-master-monolith) foi executada localmente utilizando Docker, garantindo reprodutibilidade e isolamento. Durante a execução foram observados:
 
-[x] Comportamento dos endpoints expostos (`GET /health`, `POST /flags`, `GET /flags`, `GET /flags/<nome-da-flag>`, `PUT /flags/<nome-da-flag>`).
-[x] Ciclo de vida das feature flags.
-[x] Resposta a operações de leitura, criação e atualização.
-[x] Fluxo esperado da aplicação como um serviço único.
+- [x] Comportamento dos endpoints expostos (`GET /health`, `POST /flags`, `GET /flags`, `GET /flags/<nome-da-flag>`, `PUT /flags/<nome-da-flag>`).
+- [x] Ciclo de vida das feature flags.
+- [x] Resposta a operações de leitura, criação e atualização.
+- [x] Fluxo esperado da aplicação como um serviço único.
 
 Para facilitar a validação, um [script](./testdata/test-endpoints.sh) de testes foi criado, ele executa, em sequência:
 
-[x] Verificação do healthcheck.
-[x] Consulta a uma flag inexistente.
-[x] Listagem de todas as flags.
-[x] Criação de uma nova flag.
-[x] Consulta da flag criada.
-[x] Atualização da flag.
-[x] Listagem final validando o estado atualizado.
+- [x] Verificação do healthcheck.
+- [x] Consulta a uma flag inexistente.
+- [x] Listagem de todas as flags.
+- [x] Criação de uma nova flag.
+- [x] Consulta da flag criada.
+- [x] Atualização da flag.
+- [x] Listagem final validando o estado atualizado.
 
 Esse mesmo script será utilizado no ambiente de **"produção" na cloud**, validando consistência entre ambientes.
 
@@ -107,9 +107,19 @@ A tabela abaixo analisa o alinhamento da aplicação aos princípios do **12-Fac
 
 ## 2. Arquitetura Cloud (estrutura pronta, sem respostas)
 
-### 2.1 Desenhe um diagrama de arquitetura simples para hospedar a aplicação na AWS. O diagrama deve incluir: Uma VPC com sub-redes públicas e privadas, Uma instância EC2 na sub-rede pública para rodar a aplicação, Um RDS (PostgreSQL ou MySQL) na sub-rede privada para o banco de dados, Um Security Group para a EC2 permitindo tráfego HTTP/HTTPS e SSH (de um IP específico) e Um Security Group para o RDS permitindo tráfego apenas do Security Group da EC2
+### 2.1 Desenhe um diagrama de arquitetura simples para hospedar a aplicação na AWS.
 
-{TODO}
+#### O diagrama deve incluir
+
+- [x] Uma VPC com sub-redes públicas e privadas.
+- [x] Uma instância EC2 na sub-rede pública para rodar a aplicação.
+- [x] Um RDS (PostgreSQL ou MySQL) na sub-rede privada para o banco de dados.
+- [x] Um Security Group para a EC2 permitindo tráfego HTTP/HTTPS e SSH (de um IP específico).
+- [x] Um Security Group para o RDS permitindo tráfego apenas do Security Group da EC2.
+
+![Diagrama de arquitetura simples](https://github.com/user-attachments/assets/1f052458-1b62-4517-82fb-bc1beb5412bb)
+
+Para este MVP, optamos por uma arquitetura implantada em uma única região e uma única zona de disponibilidade (Single-AZ), mantendo o ambiente simples, funcional e com custos reduzidos, sem comprometer a funcionalidade necessária. A escolha se fundamenta principalmente por se tratar de um escopo de _MVP_ com custo significativamente inferior, latência otimizada e menor complexidade operacional.
 
 ### 2.2 Faça uma estimativa de custo mensal para essa arquitetura usando a Calculadora de Preços da AWS
 
@@ -127,11 +137,11 @@ A estimativa foi baseada na arquitetura mínima necessária para executar a apli
 
 | Serviço | Configuração | Custo Mensal |
 |--------|--------------|--------------|
-| **Amazon EC2** | t3.micro, Linux, 20GB gp3 | **$15.48** |
-| **RDS PostgreSQL** | db.t4g.micro, Single-AZ, 20GB gp3 | **$43.40** |
+| **Amazon EC2** | t3.micro, Linux, 20GB gp3 | **$6.13** |
+| **RDS PostgreSQL** | db.t4g.micro, Single-AZ, 20GB gp3 | **$64.52** |
 | **Transferência de Dados** | 1GB para internet | **$0.09** |
 | **Itens obrigatórios gratuitos** | VPC, Subnets, SGs, Route Tables, IAM, IGW, CloudWatch básico | **$0.00** |
-| **Total Estimado** | — | **$58.97 / mês** |
+| **Total Estimado** | — | **$70.74 / mês** |
 
 ---
 
@@ -192,7 +202,7 @@ Inclui: VPC, Subnets, Security Groups, Route Tables, Internet Gateway, IAM e Clo
 
 ## 2.3.2 Conclusão da Estimativa
 
-O valor final aproximado de **$58.97/mês** em São Paulo reflete uma arquitetura mínima, porém funcional.  
+O valor final aproximado de **$70.74/mês** em São Paulo reflete uma arquitetura mínima, porém funcional.  
 
 A escolha **privilegia**:
 
