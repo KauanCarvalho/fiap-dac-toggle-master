@@ -59,6 +59,8 @@ Essa arquitetura é reforçada pelos seguintes aspectos:
 3. **Baixo custo**: Reduz o esforço de manutenção inicial e evita complexidade prematura.
 4. **Menos pontos de falha**: Centralização facilita testes e controle de versão, assim como reduz a latência entre serviços, pelo fato de não existir comunicação em rede entre diferentes componentes.
 5. **Debugging facilitado**: Como toda a lógica se encontra em um único lugar, o rastreamento de bugs e inconsistências é mais simples em aplicações menores como um _MVP_.
+6. **Teste e integração simplificados**: Integração contínua e testes end-to-end tendem a ser mais diretos, pois não há necessidade de simular múltiplos serviços distribuídos.
+7. **Simplicidade de observabilidade**: Logs, métricas e tracing estão concentrados em um único processo, o que facilita a correlação de eventos durante o troubleshooting.
 
 #### Desvantagens em evolução e escala
 
@@ -67,6 +69,9 @@ Essa arquitetura é reforçada pelos seguintes aspectos:
 3. **Acoplamento entre domínios**: Mudanças em uma área podem afetar outras.
 4. **Complexidade crescente**: Com o tempo tende a se tornar um monólito rígido, de difícil manutenção.
 5. **Dificuldade de migração**: A separação posterior é mais custosa do que projetar módulos desde o início.
+6. **Tempo de build/deploy maiores**: A cada alteração é preciso construir e validar o artefato inteiro, o que aumenta a latência de entrega.
+7. **Dificuldade de adotar novas tecnologias**: Tornar partes do sistema em outras linguagens ou frameworks exige reescrita e rompe o deploy unificado.
+8. **Maior vulnerabilidade**: Um bug ou vulnerabilidade pode impactar todo o produto em vez de apenas um serviço isolado.
 
 Dessa forma, embora o monólito seja adequado para o escopo de um _MVP_, ele impõe desafios significativos quando a aplicação demanda escalabilidade, governança modular e evolução de longo prazo. Porém considerando o contexto da proposta, iniciar com uma arquitetura monolítica não é apenas aceitável, é recomendado para o MVP. O foco desta fase deve estar em validar se existe demanda real pelo produto, não em construir a arquitetura perfeita.
 
