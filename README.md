@@ -2,6 +2,10 @@
 
 Turma: DevOps e Arquitetura Cloud Pós Tech — **2DCLT**.
 
+## Vídeo
+
+[Vídeo no youtube da fase 1](https://youtu.be/IaM8fzvV2Tk).
+
 ---
 
 ## Integrantes do grupo
