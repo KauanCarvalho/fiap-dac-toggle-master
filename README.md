@@ -234,19 +234,55 @@ Sem alterar a lógica da aplicação.
 
 ## 3. AWS (Prático)
 
-{TODO}
+### 3.1 Provisionamento e Configuração da Infraestrutura
+
+Após provisionar a infraestrutura na AWS conforme descrito na seção 2.1 (VPC, EC2, RDS), os seguintes passos foram executados para implantar a aplicação:
+
+1. **Provisionar infraestrutura manualmente**: Criada VPC com sub-redes públicas e privadas, EC2 t3.micro na sub-rede pública, RDS PostgreSQL db.t4g.micro na sub-rede privada, com Security Groups configurados.
+
+2. **Conectar via SSH**: Conectado à instância EC2 via SSH usando chave privada.
+
+3. **Instalar dependências na EC2**: Instalados Python, pip, Git e outras dependências necessárias. Clonado o repositório do código-fonte.
+
+4. **Configurar credenciais e variáveis de ambiente**: Definidas variáveis de ambiente para conexão com o RDS (e.g., DATABASE_URL).
+
+5. **Conectar à instância RDS**: Verificada a conectividade com o banco PostgreSQL via psql ou aplicação.
+
+6. **Executar a aplicação na EC2**: Inicializada a aplicação usando um script de inicialização.
+
+Para gerenciar a aplicação como um serviço systemd, foi criado o arquivo `/etc/systemd/system/meuservico.service` com o seguinte conteúdo:
+
+```
+[Service]
+Type=simple
+ExecStart=/home/ubuntu/start-app.sh
+WorkingDirectory=/home/ubuntu
+Restart=always
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Em seguida, executados os comandos:
+- `sudo systemctl daemon-reload`
+- `sudo systemctl enable meuservico.service`
+
+Isso garante que a aplicação seja executada automaticamente como um serviço, com reinício automático em caso de falha.
+
+7. **Validar acesso público**: Testado o acesso à aplicação via IP público da EC2, utilizando o script de testes `./testdata/test-endpoints.sh`.
 
 Checklist para execução:
 
 | Tarefa | Status |
 |--------|--------|
-| Provisionar infraestrutura manualmente | pendente |
-| Conectar via SSH | pendente |
-| Instalar dependências na EC2 (Python, pip, etc.) e o códigofonte | pendente |
-| Configurar credenciais e variáveis de ambiente | pendente |
-| Conectar à instância RDS | pendente |
-| Executar a aplicação na EC2 | pendente |
-| Validar acesso público | pendente |
+| Provisionar infraestrutura manualmente | concluído |
+| Conectar via SSH | concluído |
+| Instalar dependências na EC2 (Python, pip, etc.) e o códigofonte | concluído |
+| Configurar credenciais e variáveis de ambiente | concluído |
+| Conectar à instância RDS | concluído |
+| Executar a aplicação na EC2 | concluído |
+| Validar acesso público | concluído |
 
 [Vídeo demonstrativo (em breve)](https://www.youtube.com/)
 
