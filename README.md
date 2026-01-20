@@ -4,7 +4,7 @@ Turma: DevOps e Arquitetura Cloud Pós Tech — **2DCLT**.
 
 ## Vídeo
 
-[Vídeo no youtube da fase 1](https://youtu.be/IaM8fzvV2Tk).
+[Vídeo demonstrativo no youtube da fase 1](https://youtu.be/IaM8fzvV2Tk).
 
 ---
 
@@ -283,8 +283,6 @@ Checklist para execução:
 | Conectar à instância RDS | concluído |
 | Executar a aplicação na EC2 | concluído |
 | Validar acesso público | concluído |
-
-[Vídeo demonstrativo (em breve)](https://www.youtube.com/)
 
 ---
 
