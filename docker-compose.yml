@@ -1,0 +1,216 @@
+services:
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_AUTH_SERVICE}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_AUTH_SERVICE}
+      POSTGRES_DB: ${POSTGRES_DB_AUTH_SERVICE}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+      - ./local/services/auth-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_AUTH_SERVICE} -d ${POSTGRES_DB_AUTH_SERVICE}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - toggle-master-network
+
+  auth-service:
+    build:
+      context: ./local/services/auth-service
+    pull_policy: never
+    container_name: auth-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER_AUTH_SERVICE}:${POSTGRES_PASSWORD_AUTH_SERVICE}@auth-db:5432/${POSTGRES_DB_AUTH_SERVICE}?sslmode=disable"
+      PORT: ${PORT_AUTH_SERVICE}
+      MASTER_KEY: ${MASTER_KEY_AUTH_SERVICE}
+    ports:
+      - "${PORT_AUTH_SERVICE}:${PORT_AUTH_SERVICE}"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - toggle-master-network
+
+  flag-db:
+    image: postgres:16-alpine
+    container_name: flag-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_FLAG_SERVICE}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_FLAG_SERVICE}
+      POSTGRES_DB: ${POSTGRES_DB_FLAG_SERVICE}
+    volumes:
+      - flag-db-data:/var/lib/postgresql/data
+      - ./local/services/flag-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_FLAG_SERVICE} -d ${POSTGRES_DB_FLAG_SERVICE}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - toggle-master-network
+
+  flag-service:
+    build:
+      context: ./local/services/flag-service
+    pull_policy: never
+    container_name: flag-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER_FLAG_SERVICE}:${POSTGRES_PASSWORD_FLAG_SERVICE}@flag-db:5432/${POSTGRES_DB_FLAG_SERVICE}?sslmode=disable"
+      PORT: ${PORT_FLAG_SERVICE}
+      AUTH_SERVICE_URL: "http://auth-service:${PORT_AUTH_SERVICE}"
+    ports:
+      - "${PORT_FLAG_SERVICE}:${PORT_FLAG_SERVICE}"
+    depends_on:
+      flag-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - toggle-master-network
+
+  targeting-db:
+    image: postgres:16-alpine
+    container_name: targeting-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_TARGETING_SERVICE}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_TARGETING_SERVICE}
+      POSTGRES_DB: ${POSTGRES_DB_TARGETING_SERVICE}
+    volumes:
+      - targeting-db-data:/var/lib/postgresql/data
+      - ./local/services/targeting-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_TARGETING_SERVICE} -d ${POSTGRES_DB_TARGETING_SERVICE}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - toggle-master-network
+
+  targeting-service:
+    build:
+      context: ./local/services/targeting-service
+    pull_policy: never
+    container_name: targeting-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER_TARGETING_SERVICE}:${POSTGRES_PASSWORD_TARGETING_SERVICE}@targeting-db:5432/${POSTGRES_DB_TARGETING_SERVICE}?sslmode=disable"
+      PORT: ${PORT_TARGETING_SERVICE}
+      AUTH_SERVICE_URL: "http://auth-service:${PORT_AUTH_SERVICE}"
+    ports:
+      - "${PORT_TARGETING_SERVICE}:${PORT_TARGETING_SERVICE}"
+    depends_on:
+      targeting-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - toggle-master-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping | grep PONG || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - toggle-master-network
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    restart: unless-stopped
+    environment:
+      - SERVICES=sqs,dynamodb
+      - DEFAULT_REGION=us-east-1
+      - SQS_ENDPOINT_STRATEGY=path
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: [ "CMD-SHELL", "awslocal sqs list-queues || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - toggle-master-network
+
+  analytics-service:
+    build:
+      context: ./local/services/analytics-service
+    pull_policy: never
+    container_name: analytics-service
+    restart: unless-stopped
+    environment:
+      PORT: ${PORT_ANALYTICS_SERVICE}
+      AWS_REGION: ${AWS_REGION}
+      AWS_SQS_URL: ${AWS_SQS_URL}
+      AWS_DYNAMODB_TABLE: ${AWS_DYNAMODB_TABLE}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
+    ports:
+      - "${PORT_ANALYTICS_SERVICE}:${PORT_ANALYTICS_SERVICE}"
+    depends_on:
+      localstack:
+        condition: service_healthy
+    networks:
+      - toggle-master-network
+
+  evaluation-service:
+    build:
+      context: ./local/services/evaluation-service
+    pull_policy: never
+    container_name: evaluation-service
+    restart: unless-stopped
+    environment:
+      PORT: ${PORT_EVALUATION_SERVICE}
+      REDIS_URL: "redis://redis:6379"
+      FLAG_SERVICE_URL: "http://flag-service:${PORT_FLAG_SERVICE}"
+      TARGETING_SERVICE_URL: "http://targeting-service:${PORT_TARGETING_SERVICE}"
+      SERVICE_API_KEY: ${EVALUATION_SERVICE_API_KEY}
+      AWS_SQS_URL: ${AWS_SQS_URL}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
+    ports:
+      - "${PORT_EVALUATION_SERVICE}:${PORT_EVALUATION_SERVICE}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      flag-service:
+        condition: service_started
+      targeting-service:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+    networks:
+      - toggle-master-network
+
+volumes:
+  auth-db-data:
+  flag-db-data:
+  targeting-db-data:
+
+
+networks:
+  toggle-master-network:
+    driver: bridge
