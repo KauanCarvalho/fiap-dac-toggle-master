@@ -57,8 +57,8 @@ Próximos passos na infraestrutura da AWS (para implantação no Kubernetes).
 
 ### Databases (Cloud Provider)
 - [ ] Provisionar RDS 1: PostgreSQL para o `auth-service`.
-- [ ] Provisionar RDS 2: PostgreSQL para o `flag-service`.
-- [ ] Provisionar RDS 3: PostgreSQL para o `targeting-service`.
+- [ ] Provisionar RDS 2: PostgreSQL para o `toggle-db` (compartilhado entre `flag-service` e `targeting-service`).
+  - **Justificativa da Consolidação**: O `auth-service` guarda informações sensíveis (hashes de chaves de acesso), portanto seu isolamento em um banco de dados dedicado é crítico por segurança. Por outro lado, `flag-service` e `targeting-service` compartilham o mesmo domínio lógico (gerenciamento e regras de feature toggles). Consolidar esses dois serviços em uma única instância RDS (`toggle-db`) com esquemas separados é o ideal para reduzir os custos desnecessários do MVP na AWS sem abrir mão da segurança essencial.
 - [ ] Provisionar ElastiCache 1: Cluster Redis para o `evaluation-service`.
 - [ ] Provisionar DynamoDB: Tabela para salvar dados do `analytics-service`.
 - [ ] Provisionar SQS: Fila do tipo Standard (produtor: evaluation, consumidor: analytics).
