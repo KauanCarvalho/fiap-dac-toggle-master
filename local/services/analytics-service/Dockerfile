@@ -1,0 +1,22 @@
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.11-slim
+
+RUN useradd --no-create-home --shell /bin/false nonroot
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY . .
+
+USER nonroot
+
+EXPOSE 8005
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8005", "--workers", "2", "--timeout", "30", "app:app"]
