@@ -37,19 +37,20 @@ services:
     networks:
       - toggle-master-network
 
-  flag-db:
+  toggle-db:
     image: postgres:16-alpine
-    container_name: flag-db
+    container_name: toggle-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER_FLAG_SERVICE}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_FLAG_SERVICE}
-      POSTGRES_DB: ${POSTGRES_DB_FLAG_SERVICE}
+      POSTGRES_USER: ${POSTGRES_USER_TOGGLE_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_TOGGLE_DB}
+      POSTGRES_DB: ${POSTGRES_DB_TOGGLE_DB}
     volumes:
-      - flag-db-data:/var/lib/postgresql/data
-      - ./local/services/flag-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - toggle-db-data:/var/lib/postgresql/data
+      - ./local/services/flag-service/db/init.sql:/docker-entrypoint-initdb.d/1_flag_init.sql
+      - ./local/services/targeting-service/db/init.sql:/docker-entrypoint-initdb.d/2_targeting_init.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_FLAG_SERVICE} -d ${POSTGRES_DB_FLAG_SERVICE}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_TOGGLE_DB} -d ${POSTGRES_DB_TOGGLE_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -64,36 +65,16 @@ services:
     container_name: flag-service
     restart: unless-stopped
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER_FLAG_SERVICE}:${POSTGRES_PASSWORD_FLAG_SERVICE}@flag-db:5432/${POSTGRES_DB_FLAG_SERVICE}?sslmode=disable"
+      DATABASE_URL: "postgres://${POSTGRES_USER_TOGGLE_DB}:${POSTGRES_PASSWORD_TOGGLE_DB}@toggle-db:5432/${POSTGRES_DB_TOGGLE_DB}?sslmode=disable"
       PORT: ${PORT_FLAG_SERVICE}
       AUTH_SERVICE_URL: "http://auth-service:${PORT_AUTH_SERVICE}"
     ports:
       - "${PORT_FLAG_SERVICE}:${PORT_FLAG_SERVICE}"
     depends_on:
-      flag-db:
+      toggle-db:
         condition: service_healthy
       auth-service:
         condition: service_started
-    networks:
-      - toggle-master-network
-
-  targeting-db:
-    image: postgres:16-alpine
-    container_name: targeting-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER_TARGETING_SERVICE}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_TARGETING_SERVICE}
-      POSTGRES_DB: ${POSTGRES_DB_TARGETING_SERVICE}
-    volumes:
-      - targeting-db-data:/var/lib/postgresql/data
-      - ./local/services/targeting-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_TARGETING_SERVICE} -d ${POSTGRES_DB_TARGETING_SERVICE}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     networks:
       - toggle-master-network
 
@@ -104,13 +85,13 @@ services:
     container_name: targeting-service
     restart: unless-stopped
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER_TARGETING_SERVICE}:${POSTGRES_PASSWORD_TARGETING_SERVICE}@targeting-db:5432/${POSTGRES_DB_TARGETING_SERVICE}?sslmode=disable"
+      DATABASE_URL: "postgres://${POSTGRES_USER_TOGGLE_DB}:${POSTGRES_PASSWORD_TOGGLE_DB}@toggle-db:5432/${POSTGRES_DB_TOGGLE_DB}?sslmode=disable"
       PORT: ${PORT_TARGETING_SERVICE}
       AUTH_SERVICE_URL: "http://auth-service:${PORT_AUTH_SERVICE}"
     ports:
       - "${PORT_TARGETING_SERVICE}:${PORT_TARGETING_SERVICE}"
     depends_on:
-      targeting-db:
+      toggle-db:
         condition: service_healthy
       auth-service:
         condition: service_started
@@ -207,8 +188,8 @@ services:
 
 volumes:
   auth-db-data:
-  flag-db-data:
-  targeting-db-data:
+  toggle-db-data:
+  localstack-data:
 
 
 networks:
