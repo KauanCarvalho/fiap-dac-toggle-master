@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: targeting-service-config
+  namespace: toggle-master
+  labels:
+    app: targeting-service
+data:
+  PORT: "8003"
+  AUTH_SERVICE_URL: "http://auth-service:8001"

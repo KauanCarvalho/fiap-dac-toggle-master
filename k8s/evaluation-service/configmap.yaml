@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evaluation-service-config
+  namespace: toggle-master
+  labels:
+    app: evaluation-service
+data:
+  PORT: "8004"
+  REDIS_URL: "redis://redis:6379"
+  FLAG_SERVICE_URL: "http://flag-service:8002"
+  TARGETING_SERVICE_URL: "http://targeting-service:8003"
+  AWS_REGION: "us-east-1"
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/toggle-events-queue"
+  AWS_ENDPOINT_URL: ""

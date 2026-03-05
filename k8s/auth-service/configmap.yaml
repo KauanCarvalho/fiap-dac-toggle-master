@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+  namespace: toggle-master
+  labels:
+    app: auth-service
+data:
+  PORT: "8001"

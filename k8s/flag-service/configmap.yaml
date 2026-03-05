@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flag-service-config
+  namespace: toggle-master
+  labels:
+    app: flag-service
+data:
+  PORT: "8002"
+  AUTH_SERVICE_URL: "http://auth-service:8001"

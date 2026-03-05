@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: toggle-master
+  labels:
+    app: auth-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: <ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/auth-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-service-config
+                  key: PORT
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secret
+                  key: DATABASE_URL
+            - name: MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secret
+                  key: MASTER_KEY
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 3
