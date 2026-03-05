@@ -83,22 +83,21 @@ echo -n "seu-valor-real" | base64
 
 ---
 
-## Ordem de apply
+## Deploy com Kustomize
 
 ```bash
-# 1. Namespace
-kubectl apply -f k8s/00-namespace.yaml
+# Deploy completo (namespace + todos os serviços + ingress)
+kubectl apply -k k8s/
 
-# 2. Services
-kubectl apply -f k8s/auth-service/
-kubectl apply -f k8s/flag-service/
-kubectl apply -f k8s/targeting-service/
-kubectl apply -f k8s/analytics-service/
-kubectl apply -f k8s/evaluation-service/
-kubectl apply -f k8s/ingress.yaml
+# Ou por serviço individualmente
+kubectl apply -k k8s/auth-service/
+kubectl apply -k k8s/flag-service/
+kubectl apply -k k8s/targeting-service/
+kubectl apply -k k8s/analytics-service/
+kubectl apply -k k8s/evaluation-service/
 
-# 3. Ingress (último, após todos os Services existirem)
-kubectl apply -f k8s/ingress.yaml
+# Verificar o manifesto gerado antes de aplicar
+kubectl kustomize k8s/
 
 # Verificação final
 kubectl get all -n toggle-master
