@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: analytics-service
-  namespace: toggle-master
+  namespace: analytics-service
   labels:
     app: analytics-service
 spec:
@@ -21,6 +21,9 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8005
+          envFrom:
+            - secretRef:
+                name: analytics-service-secret
           env:
             - name: PORT
               valueFrom:
@@ -47,16 +50,6 @@ spec:
                 configMapKeyRef:
                   name: analytics-service-config
                   key: AWS_ENDPOINT_URL
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: analytics-service-secret
-                  key: AWS_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: analytics-service-secret
-                  key: AWS_SECRET_ACCESS_KEY
           resources:
             requests:
               cpu: "100m"

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-service
-  namespace: toggle-master
+  namespace: auth-service
   labels:
     app: auth-service
 spec:

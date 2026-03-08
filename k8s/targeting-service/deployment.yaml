@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: targeting-service
-  namespace: toggle-master
+  namespace: targeting-service
   labels:
     app: targeting-service
 spec:

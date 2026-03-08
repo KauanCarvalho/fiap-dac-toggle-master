@@ -2,7 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: analytics-service-hpa
-  namespace: toggle-master
+  namespace: analytics-service
   labels:
     app: analytics-service
 spec:

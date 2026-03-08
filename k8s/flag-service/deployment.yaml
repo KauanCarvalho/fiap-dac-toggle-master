@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flag-service
-  namespace: toggle-master
+  namespace: flag-service
   labels:
     app: flag-service
 spec:

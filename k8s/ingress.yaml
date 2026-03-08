@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: toggle-master-ingress
-  namespace: toggle-master
+  namespace: auth-service
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/use-regex: "true"
@@ -23,7 +23,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: flag-service
+                name: flag-service-ext
                 port:
                   number: 8002
 
@@ -31,7 +31,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: targeting-service
+                name: targeting-service-ext
                 port:
                   number: 8003
 
@@ -39,7 +39,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: evaluation-service
+                name: evaluation-service-ext
                 port:
                   number: 8004
 
@@ -47,6 +47,51 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: analytics-service
+                name: analytics-service-ext
                 port:
                   number: 8005
+---
+# ExternalName services para rotear para outros namespaces
+apiVersion: v1
+kind: Service
+metadata:
+  name: flag-service-ext
+  namespace: auth-service
+spec:
+  type: ExternalName
+  externalName: flag-service.flag-service.svc.cluster.local
+  ports:
+    - port: 8002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: targeting-service-ext
+  namespace: auth-service
+spec:
+  type: ExternalName
+  externalName: targeting-service.targeting-service.svc.cluster.local
+  ports:
+    - port: 8003
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: evaluation-service-ext
+  namespace: auth-service
+spec:
+  type: ExternalName
+  externalName: evaluation-service.evaluation-service.svc.cluster.local
+  ports:
+    - port: 8004
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service-ext
+  namespace: auth-service
+spec:
+  type: ExternalName
+  externalName: analytics-service.analytics-service.svc.cluster.local
+  ports:
+    - port: 8005

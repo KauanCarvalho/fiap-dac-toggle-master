@@ -2,7 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: evaluation-service-hpa
-  namespace: toggle-master
+  namespace: evaluation-service
   labels:
     app: evaluation-service
 spec:
