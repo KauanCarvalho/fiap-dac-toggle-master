@@ -266,7 +266,7 @@ aws ec2 authorize-security-group-ingress \
 
 ## 5. Load Balancer (criação manual)
 
-O EKS não conseguiu provisionar o LB automaticamente no AWS Academy devido a restrições de IAM (`iam:AttachRolePolicy` bloqueado). Solução adotada: criar um Classic Load Balancer manualmente.
+O EKS não conseguiu provisionar o LB automaticamente no AWS Academy devido a restrições de IAM (`iam:AttachRolePolicy` bloqueado). Solução adotada: criar um Application Load Balancer manualmente.
 
 ### Como seria o processo correto (fora do AWS Academy)
 
@@ -305,7 +305,7 @@ kubectl get ingress -A
 
 ---
 
-### Solução adotada no AWS Academy: Classic Load Balancer manual
+### Solução adotada no AWS Academy: Application Load Balancer manual
 
 ### Tags nas subnets (necessário para EKS)
 
@@ -322,25 +322,47 @@ for subnet in $SUBNETS; do
 done
 ```
 
-### Criar o CLB apontando para o NodePort do ingress-nginx (32308)
+### Criar o ALB apontando para o NodePort do ingress-nginx (32308)
 
 ```bash
 NODE_SG="sg-0b2a47f746b7fd2de"
+VPC_ID="vpc-0218e857ac8dc68d7"
 
-aws elb create-load-balancer \
-  --load-balancer-name fiap-ingress-lb \
-  --listeners "Protocol=HTTP,LoadBalancerPort=80,InstanceProtocol=HTTP,InstancePort=32308" \
+# Criar o ALB
+ALB_ARN=$(aws elbv2 create-load-balancer \
+  --name fiap-ingress-lb \
+  --type application \
+  --scheme internet-facing \
   --subnets subnet-0fae396ae957a7af4 subnet-00249390623fad2c6 subnet-0f410504754070084 \
   --security-groups $NODE_SG \
+  --region us-east-1 \
+  --query 'LoadBalancers[0].LoadBalancerArn' \
+  --output text)
+
+# Criar o Target Group apontando para o NodePort do ingress-nginx (32308)
+TG_ARN=$(aws elbv2 create-target-group \
+  --name fiap-ingress-tg \
+  --protocol HTTP \
+  --port 32308 \
+  --vpc-id $VPC_ID \
+  --target-type instance \
+  --region us-east-1 \
+  --query 'TargetGroups[0].TargetGroupArn' \
+  --output text)
+
+# Registrar os nodes no Target Group
+aws elbv2 register-targets \
+  --target-group-arn $TG_ARN \
+  --targets Id=i-0eaedbcf5f202cc65 Id=i-0e1289f99316458c3 \
   --region us-east-1
 
-# Registrar os nodes
-for INSTANCE in i-0eaedbcf5f202cc65 i-0e1289f99316458c3; do
-  aws elb register-instances-with-load-balancer \
-    --load-balancer-name fiap-ingress-lb \
-    --instances $INSTANCE \
-    --region us-east-1
-done
+# Criar o Listener na porta 80 encaminhando para o Target Group
+aws elbv2 create-listener \
+  --load-balancer-arn $ALB_ARN \
+  --protocol HTTP \
+  --port 80 \
+  --default-actions Type=forward,TargetGroupArn=$TG_ARN \
+  --region us-east-1
 
 # Liberar portas no SG dos nodes
 aws ec2 authorize-security-group-ingress \
@@ -348,6 +370,13 @@ aws ec2 authorize-security-group-ingress \
 
 aws ec2 authorize-security-group-ingress \
   --group-id $NODE_SG --protocol tcp --port 32308 --cidr 0.0.0.0/0 --region us-east-1
+
+# Obter o DNS do ALB (atualizar a Base URL nas seções seguintes)
+aws elbv2 describe-load-balancers \
+  --names fiap-ingress-lb \
+  --query 'LoadBalancers[0].DNSName' \
+  --output text \
+  --region us-east-1
 ```
 
 ---
