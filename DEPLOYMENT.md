@@ -88,7 +88,49 @@ kubectl rollout restart deployment/auth-service -n auth-service
 
 ---
 
-## 3. Alterações nos manifestos K8s
+## 3. ECR — Repositórios e push das imagens
+
+### Criar os repositórios
+
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION="us-east-1"
+
+for SERVICE in auth-service flag-service targeting-service evaluation-service analytics-service; do
+  aws ecr create-repository \
+    --repository-name $SERVICE \
+    --region $REGION
+done
+```
+
+### Autenticar o Docker no ECR
+
+```bash
+aws ecr get-login-password --region $REGION \
+  | docker login --username AWS --password-stdin \
+    $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+```
+
+### Build e push de cada imagem
+
+```bash
+for SERVICE in auth-service flag-service targeting-service evaluation-service analytics-service; do
+  docker build -t $SERVICE ./$SERVICE
+  docker tag $SERVICE:latest \
+    $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$SERVICE:latest
+  docker push \
+    $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$SERVICE:latest
+done
+```
+
+> Após o push, substitua `<ACCOUNT_ID>` e `<AWS_REGION>` nos `deployment.yaml` de cada serviço pelo valor real:
+> ```
+> image: 474171319437.dkr.ecr.us-east-1.amazonaws.com/<service>:latest
+> ```
+
+---
+
+## 4. Alterações nos manifestos K8s
 
 ### analytics-service/deployment.yaml
 Adicionado `envFrom` para injetar as credenciais AWS do secret:
@@ -121,7 +163,7 @@ data:
 
 ---
 
-## 3. Bancos de dados RDS
+## 5. Bancos de dados RDS
 
 ### Criação das instâncias
 
@@ -225,7 +267,7 @@ kubectl run psql-client --image=postgres:15 --rm -it --restart=Never -n targetin
 
 ---
 
-## 4. ElastiCache Redis
+## 6. ElastiCache Redis
 
 ### Criar o cluster Redis
 
@@ -264,7 +306,7 @@ aws ec2 authorize-security-group-ingress \
 
 ---
 
-## 5. Load Balancer (criação manual)
+## 7. Load Balancer (criação manual)
 
 O EKS não conseguiu provisionar o LB automaticamente no AWS Academy devido a restrições de IAM (`iam:AttachRolePolicy` bloqueado). Solução adotada: criar um Application Load Balancer manualmente.
 
@@ -381,7 +423,7 @@ aws elbv2 describe-load-balancers \
 
 ---
 
-## 6. Configurar SERVICE_API_KEY no evaluation-service
+## 8. Configurar SERVICE_API_KEY no evaluation-service
 
 Após criar a primeira API key via auth-service, configurar no secret do evaluation-service:
 
@@ -407,7 +449,7 @@ kubectl rollout restart deployment/evaluation-service -n evaluation-service
 
 ---
 
-## 7. Formato correto da Targeting Rule
+## 9. Formato correto da Targeting Rule
 
 O evaluation-service espera o formato:
 ```json
@@ -418,7 +460,7 @@ O evaluation-service espera o formato:
 
 ---
 
-## 8. Endpoints disponíveis
+## 10. Endpoints disponíveis
 
 Base URL: `http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com`
 
@@ -434,9 +476,9 @@ Base URL: `http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com`
 
 ---
 
-## 9. Observações importantes (AWS Academy)
+## 11. Observações importantes (AWS Academy)
 
 - **Credenciais AWS expiram** ao encerrar o lab — repetir o passo 1 a cada nova sessão
-- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o LB manual criado no passo 5
+- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o LB manual criado no passo 7
 - Não é possível modificar IAM roles (sem `iam:AttachRolePolicy`)
 - O `LabRole` já possui permissões suficientes para EKS, RDS, ElastiCache e SQS
