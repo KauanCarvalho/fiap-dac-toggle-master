@@ -306,7 +306,42 @@ aws ec2 authorize-security-group-ingress \
 
 ---
 
-## 7. Load Balancer (criação manual)
+## 7. DynamoDB — Tabela de eventos de analytics
+
+O `analytics-service` consome eventos da fila SQS e os persiste na tabela `analytics-events` do DynamoDB.
+
+### Criar a tabela
+
+```bash
+aws dynamodb create-table \
+  --table-name analytics-events \
+  --attribute-definitions AttributeName=event_id,AttributeType=S \
+  --key-schema AttributeName=event_id,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-east-1
+```
+
+Aguardar a tabela ficar `ACTIVE`:
+
+```bash
+aws dynamodb wait table-exists \
+  --table-name analytics-events \
+  --region us-east-1
+```
+
+### Estrutura dos itens gravados
+
+| Atributo | Tipo | Descrição |
+|---|---|---|
+| `event_id` | String (PK) | UUID gerado pelo analytics-service |
+| `user_id` | String | ID do usuário avaliado |
+| `flag_name` | String | Nome da feature flag |
+| `result` | Boolean | Resultado da avaliação |
+| `timestamp` | String | Timestamp do evento |
+
+---
+
+## 8. Load Balancer (criação manual)
 
 O EKS não conseguiu provisionar o LB automaticamente no AWS Academy devido a restrições de IAM (`iam:AttachRolePolicy` bloqueado). Solução adotada: criar um Application Load Balancer manualmente.
 
@@ -423,7 +458,7 @@ aws elbv2 describe-load-balancers \
 
 ---
 
-## 8. Configurar SERVICE_API_KEY no evaluation-service
+## 9. Configurar SERVICE_API_KEY no evaluation-service
 
 Após criar a primeira API key via auth-service, configurar no secret do evaluation-service:
 
@@ -449,7 +484,7 @@ kubectl rollout restart deployment/evaluation-service -n evaluation-service
 
 ---
 
-## 9. Formato correto da Targeting Rule
+## 10. Formato correto da Targeting Rule
 
 O evaluation-service espera o formato:
 ```json
@@ -460,7 +495,7 @@ O evaluation-service espera o formato:
 
 ---
 
-## 10. Endpoints disponíveis
+## 11. Endpoints disponíveis
 
 Base URL: `http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com`
 
@@ -476,9 +511,9 @@ Base URL: `http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com`
 
 ---
 
-## 11. Observações importantes (AWS Academy)
+## 12. Observações importantes (AWS Academy)
 
 - **Credenciais AWS expiram** ao encerrar o lab — repetir o passo 1 a cada nova sessão
-- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o LB manual criado no passo 7
+- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o LB manual criado no passo 8
 - Não é possível modificar IAM roles (sem `iam:AttachRolePolicy`)
 - O `LabRole` já possui permissões suficientes para EKS, RDS, ElastiCache e SQS
