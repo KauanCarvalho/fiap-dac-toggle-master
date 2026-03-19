@@ -341,7 +341,68 @@ aws dynamodb wait table-exists \
 
 ---
 
-## 8. Load Balancer (criação manual)
+## 8. SQS — Fila de eventos de avaliação
+
+O `evaluation-service` publica eventos na fila e o `analytics-service` os consome via long-polling.
+
+### Criar a fila
+
+```bash
+aws sqs create-queue \
+  --queue-name evaluation-events \
+  --attributes ReceiveMessageWaitTimeSeconds=20,VisibilityTimeout=60 \
+  --region us-east-1
+```
+
+> `ReceiveMessageWaitTimeSeconds=20` habilita long-polling, que é o modo usado pelo `analytics-service`.
+
+### Obter a URL da fila (para atualizar os configmaps)
+
+```bash
+aws sqs get-queue-url \
+  --queue-name evaluation-events \
+  --region us-east-1 \
+  --query 'QueueUrl' \
+  --output text
+```
+
+Atualizar `k8s/evaluation-service/configmap.yaml` e `k8s/analytics-service/configmap.yaml` com a URL retornada:
+
+```yaml
+AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/evaluation-events"
+```
+
+---
+
+## 9. Ingress-nginx Controller
+
+O ingress-nginx precisa ser instalado antes de criar o ALB, pois o Load Balancer encaminha tráfego para o NodePort `32308` exposto pelo controller.
+
+### Instalar via Helm
+
+```bash
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --set controller.service.type=NodePort \
+  --set controller.service.nodePorts.http=32308
+```
+
+### Verificar a instalação
+
+```bash
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+```
+
+O `EXTERNAL-IP` do serviço ficará `<pending>` — isso é esperado. O tráfego chegará via ALB → NodePort `32308`.
+
+---
+
+## 10. Load Balancer (criação manual)
 
 O EKS não conseguiu provisionar o LB automaticamente no AWS Academy devido a restrições de IAM (`iam:AttachRolePolicy` bloqueado). Solução adotada: criar um Application Load Balancer manualmente.
 
@@ -401,6 +462,33 @@ done
 
 ### Criar o ALB apontando para o NodePort do ingress-nginx (32308)
 
+> **Como descobrir as subnets e demais IDs em um ambiente novo:**
+> ```bash
+> # Subnets do cluster EKS (use ao menos 2, em AZs diferentes)
+> aws eks describe-cluster \
+>   --name fiap-clusters \
+>   --query 'cluster.resourcesVpcConfig.subnetIds' \
+>   --output text --region us-east-1
+>
+> # VPC ID do cluster
+> aws eks describe-cluster \
+>   --name fiap-clusters \
+>   --query 'cluster.resourcesVpcConfig.vpcId' \
+>   --output text --region us-east-1
+>
+> # Security Group dos nodes (procure o grupo com "eks-cluster-sg" ou filtre pela VPC)
+> aws ec2 describe-security-groups \
+>   --filters "Name=vpc-id,Values=<VPC_ID>" \
+>   --query 'SecurityGroups[*].[GroupId,GroupName]' \
+>   --output table --region us-east-1
+>
+> # Instance IDs dos nodes do cluster
+> aws ec2 describe-instances \
+>   --filters "Name=tag:eks:cluster-name,Values=fiap-clusters" "Name=instance-state-name,Values=running" \
+>   --query 'Reservations[*].Instances[*].InstanceId' \
+>   --output text --region us-east-1
+> ```
+
 ```bash
 NODE_SG="sg-0b2a47f746b7fd2de"
 VPC_ID="vpc-0218e857ac8dc68d7"
@@ -458,7 +546,7 @@ aws elbv2 describe-load-balancers \
 
 ---
 
-## 9. Configurar SERVICE_API_KEY no evaluation-service
+## 11. Configurar SERVICE_API_KEY no evaluation-service
 
 Após criar a primeira API key via auth-service, configurar no secret do evaluation-service:
 
@@ -484,7 +572,7 @@ kubectl rollout restart deployment/evaluation-service -n evaluation-service
 
 ---
 
-## 10. Formato correto da Targeting Rule
+## 12. Formato correto da Targeting Rule
 
 O evaluation-service espera o formato:
 ```json
@@ -495,7 +583,7 @@ O evaluation-service espera o formato:
 
 ---
 
-## 11. Endpoints disponíveis
+## 13. Endpoints disponíveis
 
 Base URL: `http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com`
 
@@ -511,9 +599,9 @@ Base URL: `http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com`
 
 ---
 
-## 12. Observações importantes (AWS Academy)
+## 14. Observações importantes (AWS Academy)
 
 - **Credenciais AWS expiram** ao encerrar o lab — repetir o passo 1 a cada nova sessão
-- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o LB manual criado no passo 8
+- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o LB manual criado no passo 10
 - Não é possível modificar IAM roles (sem `iam:AttachRolePolicy`)
 - O `LabRole` já possui permissões suficientes para EKS, RDS, ElastiCache e SQS
