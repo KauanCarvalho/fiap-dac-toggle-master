@@ -5,12 +5,12 @@
 | Recurso | Identificador |
 |---|---|
 | Cluster EKS | `fiap-clusters` |
-| Load Balancer | `fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com` |
-| RDS auth-service | `auth-service-db.cxwa80mg64h4.us-east-1.rds.amazonaws.com` |
-| RDS flag-service | `flag-service-db.cxwa80mg64h4.us-east-1.rds.amazonaws.com` |
-| RDS targeting-service | `targeting-service-db.cxwa80mg64h4.us-east-1.rds.amazonaws.com` |
-| ElastiCache Redis | `evaluation-service-redis.alxemv.0001.use1.cache.amazonaws.com:6379` |
-| SQS Queue | `https://sqs.us-east-1.amazonaws.com/474171319437/evaluation-events` |
+| Load Balancer | `fiap-ingress-lb-450359770.us-east-1.elb.amazonaws.com` |
+| RDS auth-service | `auth-service-db.cbgsrgxwf2wi.us-east-1.rds.amazonaws.com` |
+| RDS flag-service | `flag-service-db.cbgsrgxwf2wi.us-east-1.rds.amazonaws.com` |
+| RDS targeting-service | `targeting-service-db.cbgsrgxwf2wi.us-east-1.rds.amazonaws.com` |
+| ElastiCache Redis | `evaluation-service-redis.f512fy.ng.0001.use1.cache.amazonaws.com:6379` |
+| SQS Queue | `https://sqs.us-east-1.amazonaws.com/244257696167/evaluation-events` |
 
 ---
 
@@ -25,42 +25,39 @@ Codificar em base64 e atualizar os secrets do `analytics-service` e `evaluation-
 KEY_ID=$(echo -n "SEU_ACCESS_KEY_ID" | base64 -w0)
 SECRET=$(echo -n "SEU_SECRET_ACCESS_KEY" | base64 -w0)
 TOKEN=$(echo -n "SEU_SESSION_TOKEN" | base64 -w0)
+
+echo "KEY_ID: $KEY_ID"
+echo "SECRET: $SECRET"
+echo "TOKEN:  $TOKEN"
 ```
 
-Editar `k8s/analytics-service/secret.yaml` e `k8s/evaluation-service/secret.yaml`:
+Editar `k8s/analytics-service/secret.yaml` e `k8s/evaluation-service/secret.yaml` com os valores gerados:
 
 ```yaml
 data:
-  AWS_ACCESS_KEY_ID: "<base64>"
-  AWS_SECRET_ACCESS_KEY: "<base64>"
-  AWS_SESSION_TOKEN: "<base64>"
+  AWS_ACCESS_KEY_ID: "<base64 do KEY_ID>"
+  AWS_SECRET_ACCESS_KEY: "<base64 do SECRET>"
+  AWS_SESSION_TOKEN: "<base64 do TOKEN>"
 ```
 
 Aplicar:
 ```bash
 kubectl apply -f k8s/analytics-service/secret.yaml
 kubectl apply -f k8s/evaluation-service/secret.yaml
+
+kubectl rollout restart deployment/analytics-service -n analytics-service
+kubectl rollout restart deployment/evaluation-service -n evaluation-service
 ```
+
+> ⚠️ **Atenção:** Isso deve ser repetido a cada nova sessão do AWS Academy, pois as credenciais expiram ao encerrar o lab.
 
 ---
 
 ## 2. MASTER_KEY do auth-service
 
-A `MASTER_KEY` é uma chave secreta definida manualmente que protege o endpoint de criação de API Keys (`/auth/admin/keys`). Deve ser uma string longa, aleatória e única.
+A `MASTER_KEY` protege o endpoint de criação de API Keys (`/auth/admin/keys`). Deve ser uma string longa, aleatória e única.
 
-### Gerar a MASTER_KEY
-
-```bash
-# Opção 1: openssl (recomendado)
-openssl rand -hex 32
-
-# Opção 2: /dev/urandom
-cat /dev/urandom | tr -dc 'A-F0-9' | head -c 64
-```
-
-Exemplo de saída: `045551C9B96D249AB0E993F4749B657`
-
-### Codificar em base64 e atualizar o secret
+### Gerar e codificar a MASTER_KEY
 
 ```bash
 MASTER_KEY="$(openssl rand -hex 32)"
@@ -84,7 +81,7 @@ kubectl apply -f k8s/auth-service/secret.yaml
 kubectl rollout restart deployment/auth-service -n auth-service
 ```
 
-> Guarde o valor original da MASTER_KEY — ela será necessária para criar API Keys via `/auth/admin/keys`.
+> ⚠️ **Guarde o valor original da MASTER_KEY** — ela será necessária para criar API Keys via `/auth/admin/keys`.
 
 ---
 
@@ -98,35 +95,37 @@ REGION="us-east-1"
 
 for SERVICE in auth-service flag-service targeting-service evaluation-service analytics-service; do
   aws ecr create-repository \
-    --repository-name $SERVICE \
-    --region $REGION
+    --repository-name ${SERVICE} \
+    --region ${REGION}
 done
 ```
 
 ### Autenticar o Docker no ECR
 
 ```bash
-aws ecr get-login-password --region $REGION \
+aws ecr get-login-password --region ${REGION} \
   | docker login --username AWS --password-stdin \
-    $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+    ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
 ```
 
 ### Build e push de cada imagem
 
+> ⚠️ **Importante:** Use `${SERVICE}` com chaves para evitar que o bash concatene o nome da variável com texto adjacente (ex: o bug `analytics-serviceatest`).
+
 ```bash
 for SERVICE in auth-service flag-service targeting-service evaluation-service analytics-service; do
-  docker build -t $SERVICE ./$SERVICE
-  docker tag $SERVICE:latest \
-    $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$SERVICE:latest
+  docker build -t ${SERVICE} ./${SERVICE}
+  docker tag ${SERVICE}:latest \
+    ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${SERVICE}:latest
   docker push \
-    $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$SERVICE:latest
+    ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${SERVICE}:latest
 done
 ```
 
-> Após o push, substitua `<ACCOUNT_ID>` e `<AWS_REGION>` nos `deployment.yaml` de cada serviço pelo valor real:
-> ```
-> image: 474171319437.dkr.ecr.us-east-1.amazonaws.com/<service>:latest
-> ```
+Após o push, atualize o campo `image` nos `deployment.yaml` de cada serviço:
+```
+image: 244257696167.dkr.ecr.us-east-1.amazonaws.com/<service>:latest
+```
 
 ---
 
@@ -161,6 +160,41 @@ data:
   AWS_SESSION_TOKEN: "<base64>"
 ```
 
+### ingress.yaml — ExternalName services substituídos por Endpoints manuais
+
+O ingress-nginx não consegue rotear para `ExternalName` services cross-namespace pois eles não possuem ClusterIP. A solução foi substituir por Services com Endpoints manuais apontando diretamente para os ClusterIPs dos serviços.
+
+Para obter os ClusterIPs atuais:
+```bash
+kubectl get svc -A | grep -E "flag-service |targeting-service |evaluation-service |analytics-service "
+```
+
+Substituir no `ingress.yaml` os blocos ExternalName pelo seguinte padrão (repetir para cada serviço):
+```yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flag-service-ext
+  namespace: auth-service
+spec:
+  ports:
+    - port: 8002
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: flag-service-ext
+  namespace: auth-service
+subsets:
+  - addresses:
+      - ip: <CLUSTER_IP_DO_FLAG_SERVICE>
+    ports:
+      - port: 8002
+```
+
+> ⚠️ **Atenção:** Os ClusterIPs podem mudar se os services forem recriados. Nesse caso, atualize os Endpoints e reaplique o ingress.
+
 ---
 
 ## 5. Bancos de dados RDS
@@ -168,42 +202,54 @@ data:
 ### Criação das instâncias
 
 ```bash
-# auth-service
-aws rds create-db-instance \
-  --db-instance-identifier auth-service-db \
-  --db-instance-class db.t3.micro \
-  --engine postgres \
-  --master-username postgres \
-  --master-user-password <SENHA_AQUI> \
-  --allocated-storage 20 \
-  --no-multi-az \
-  --publicly-accessible \
-  --region us-east-1
-
-# flag-service
-aws rds create-db-instance \
-  --db-instance-identifier flag-service-db \
-  --db-instance-class db.t3.micro \
-  --engine postgres \
-  --master-username postgres \
-  --master-user-password <SENHA_AQUI> \
-  --allocated-storage 20 \
-  --no-multi-az \
-  --publicly-accessible \
-  --region us-east-1
-
-# targeting-service
-aws rds create-db-instance \
-  --db-instance-identifier targeting-service-db \
-  --db-instance-class db.t3.micro \
-  --engine postgres \
-  --master-username postgres \
-  --master-user-password <SENHA_AQUI> \
-  --allocated-storage 20 \
-  --no-multi-az \
-  --publicly-accessible \
-  --region us-east-1
+for DB_ID in auth-service-db flag-service-db targeting-service-db; do
+  aws rds create-db-instance \
+    --db-instance-identifier ${DB_ID} \
+    --db-instance-class db.t3.micro \
+    --engine postgres \
+    --master-username postgres \
+    --master-user-password <SENHA_AQUI> \
+    --allocated-storage 20 \
+    --no-multi-az \
+    --publicly-accessible \
+    --region us-east-1
+done
 ```
+
+Aguardar todos ficarem `available` (pode demorar 5-10 minutos):
+
+```bash
+for DB in auth-service-db flag-service-db targeting-service-db; do
+  echo -n "Aguardando $DB... "
+  aws rds wait db-instance-available \
+    --db-instance-identifier $DB \
+    --region us-east-1
+  echo "OK"
+done
+```
+
+### Obter endpoints e gerar connection strings em base64
+
+```bash
+for DB in auth-service-db flag-service-db targeting-service-db; do
+  ENDPOINT=$(aws rds describe-db-instances \
+    --db-instance-identifier $DB \
+    --region us-east-1 \
+    --query "DBInstances[0].Endpoint.Address" \
+    --output text)
+
+  DBNAME=$(echo $DB | sed 's/-service-db/db/')
+  CONN="postgres://postgres:<SENHA>@$ENDPOINT:5432/$DBNAME?sslmode=require"
+  ENCODED=$(echo -n "$CONN" | base64 -w0)
+
+  echo "=== $DB ==="
+  echo "plain:  $CONN"
+  echo "base64: $ENCODED"
+  echo ""
+done
+```
+
+> ⚠️ **sslmode=require:** O RDS por padrão exige SSL. Use `sslmode=require` na connection string — `sslmode=disable` causará erro `FATAL: no pg_hba.conf entry`.
 
 ### Liberar porta 5432 nos Security Groups
 
@@ -219,14 +265,23 @@ for DB in auth-service-db flag-service-db targeting-service-db; do
 done
 ```
 
-### Criar tabelas (migrations manuais)
+### Criar bancos e tabelas (migrations manuais)
+
+> ⚠️ **Importante:** O banco `authdb` não existe por padrão — o RDS cria apenas o banco `postgres`. Crie-o antes de criar as tabelas.
 
 ```bash
-# api_keys (auth-service)
+# 1. Criar banco authdb no auth-service-db
 kubectl run psql-client --image=postgres:15 --rm -it --restart=Never -n auth-service \
   --env='PGPASSWORD=<SENHA_AQUI>' \
-  -- psql -h auth-service-db.cxwa80mg64h4.us-east-1.rds.amazonaws.com \
+  -- psql -h auth-service-db.cbgsrgxwf2wi.us-east-1.rds.amazonaws.com \
      -U postgres -d postgres \
+     -c "CREATE DATABASE authdb;"
+
+# 2. Criar tabela api_keys no banco authdb
+kubectl run psql-client --image=postgres:15 --rm -it --restart=Never -n auth-service \
+  --env='PGPASSWORD=<SENHA_AQUI>' \
+  -- psql -h auth-service-db.cbgsrgxwf2wi.us-east-1.rds.amazonaws.com \
+     -U postgres -d authdb \
      -c "CREATE TABLE IF NOT EXISTS api_keys (
        id SERIAL PRIMARY KEY,
        name VARCHAR(255) NOT NULL UNIQUE,
@@ -236,10 +291,10 @@ kubectl run psql-client --image=postgres:15 --rm -it --restart=Never -n auth-ser
        created_at TIMESTAMP DEFAULT NOW()
      );"
 
-# flags (flag-service)
+# 3. Criar tabela flags no flag-service-db (banco postgres já existe)
 kubectl run psql-client --image=postgres:15 --rm -it --restart=Never -n flag-service \
   --env='PGPASSWORD=<SENHA_AQUI>' \
-  -- psql -h flag-service-db.cxwa80mg64h4.us-east-1.rds.amazonaws.com \
+  -- psql -h flag-service-db.cbgsrgxwf2wi.us-east-1.rds.amazonaws.com \
      -U postgres -d postgres \
      -c "CREATE TABLE IF NOT EXISTS flags (
        id SERIAL PRIMARY KEY,
@@ -250,16 +305,16 @@ kubectl run psql-client --image=postgres:15 --rm -it --restart=Never -n flag-ser
        updated_at TIMESTAMP DEFAULT NOW()
      );"
 
-# targeting_rules (targeting-service)
+# 4. Criar tabela targeting_rules no targeting-service-db (banco postgres já existe)
 kubectl run psql-client --image=postgres:15 --rm -it --restart=Never -n targeting-service \
   --env='PGPASSWORD=<SENHA_AQUI>' \
-  -- psql -h targeting-service-db.cxwa80mg64h4.us-east-1.rds.amazonaws.com \
+  -- psql -h targeting-service-db.cbgsrgxwf2wi.us-east-1.rds.amazonaws.com \
      -U postgres -d postgres \
      -c "CREATE TABLE IF NOT EXISTS targeting_rules (
        id SERIAL PRIMARY KEY,
        flag_name VARCHAR(255) NOT NULL UNIQUE,
        is_enabled BOOLEAN DEFAULT TRUE,
-       rules JSONB,
+       rules JSONB NOT NULL,
        created_at TIMESTAMP DEFAULT NOW(),
        updated_at TIMESTAMP DEFAULT NOW()
      );"
@@ -283,26 +338,44 @@ aws elasticache create-replication-group \
 
 Aguardar ficar `available` e obter o endpoint:
 
+> ⚠️ **Atenção:** O Redis é criado como ReplicationGroup, não como CacheCluster simples. Use o comando correto abaixo — `describe-cache-clusters` retornará erro `CacheClusterNotFound`.
+
 ```bash
-aws elasticache describe-cache-clusters \
-  --cache-cluster-id evaluation-service-redis \
-  --show-cache-node-info \
-  --query 'CacheClusters[0].CacheNodes[0].Endpoint.Address' \
-  --output text --region us-east-1
+aws elasticache describe-replication-groups \
+  --replication-group-id evaluation-service-redis \
+  --region us-east-1 \
+  --query "ReplicationGroups[0].NodeGroups[0].PrimaryEndpoint.Address" \
+  --output text
 ```
 
-### Liberar porta 6379:
+A connection string ficará:
+```
+redis://<endpoint>:6379
+```
+
+### Liberar porta 6379 para o SG do EKS
 
 ```bash
-SG=$(aws ec2 describe-security-groups \
-  --filters "Name=vpc-id,Values=vpc-0218e857ac8dc68d7" "Name=group-name,Values=default" \
-  --query 'SecurityGroups[0].GroupId' \
-  --output text --region us-east-1)
+# Pega o SG default da VPC (usado pelo Redis quando criado sem SG explícito)
+DEFAULT_SG=$(aws ec2 describe-security-groups \
+  --filters "Name=group-name,Values=default" \
+             "Name=vpc-id,Values=vpc-05da6afadff5c6e2c" \
+  --region us-east-1 \
+  --query "SecurityGroups[0].GroupId" \
+  --output text)
 
+echo "SG default: $DEFAULT_SG"
+
+# Libera porta 6379 para o SG dos nodes do EKS
 aws ec2 authorize-security-group-ingress \
-  --group-id $SG --protocol tcp --port 6379 \
-  --cidr 0.0.0.0/0 --region us-east-1
+  --group-id $DEFAULT_SG \
+  --protocol tcp \
+  --port 6379 \
+  --source-group sg-09650fb07146451df \
+  --region us-east-1
 ```
+
+> Se retornar `InvalidPermission.Duplicate`, a regra já existe — está tudo certo.
 
 ---
 
@@ -356,7 +429,7 @@ aws sqs create-queue \
 
 > `ReceiveMessageWaitTimeSeconds=20` habilita long-polling, que é o modo usado pelo `analytics-service`.
 
-### Obter a URL da fila (para atualizar os configmaps)
+### Obter a URL da fila
 
 ```bash
 aws sqs get-queue-url \
@@ -398,19 +471,17 @@ kubectl get pods -n ingress-nginx
 kubectl get svc -n ingress-nginx
 ```
 
-O `EXTERNAL-IP` do serviço ficará `<pending>` — isso é esperado. O tráfego chegará via ALB → NodePort `32308`.
+> O `EXTERNAL-IP` do serviço ficará `<pending>` — isso é esperado. O tráfego chegará via ALB → NodePort `32308`.
 
 ---
 
 ## 10. Load Balancer (criação manual)
 
-O EKS não conseguiu provisionar o LB automaticamente no AWS Academy devido a restrições de IAM (`iam:AttachRolePolicy` bloqueado). Solução adotada: criar um Application Load Balancer manualmente.
+O EKS não conseguiu provisionar o LB automaticamente no AWS Academy devido a restrições de IAM (`iam:AttachRolePolicy` bloqueado). Solução adotada: criar um Application Load Balancer manualmente apontando para o NodePort do ingress-nginx.
 
 ### Como seria o processo correto (fora do AWS Academy)
 
-Em um ambiente sem restrições de IAM, o correto é usar o **AWS Load Balancer Controller** que provisiona um Application Load Balancer (ALB) automaticamente a partir de anotações no Ingress.
-
-**1. Instalar o AWS Load Balancer Controller via Helm:**
+Em um ambiente sem restrições de IAM, o correto é usar o **AWS Load Balancer Controller**:
 
 ```bash
 helm repo add eks https://aws.github.io/eks-charts
@@ -420,13 +491,11 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
   --set clusterName=fiap-clusters \
   --set serviceAccount.create=true \
-  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::474171319437:role/AmazonEKSLoadBalancerControllerRole
+  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::244257696167:role/AmazonEKSLoadBalancerControllerRole
 ```
 
-**2. Anotar o Ingress para usar ALB:**
-
+Com o Ingress anotado:
 ```yaml
-# k8s/ingress.yaml
 metadata:
   annotations:
     kubernetes.io/ingress.class: alb
@@ -434,25 +503,58 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
 ```
 
-**3. O ALB seria provisionado automaticamente:**
-
-```bash
-kubectl get ingress -A
-# EXTERNAL-IP seria preenchido automaticamente com o DNS do ALB
-```
+O ALB seria provisionado automaticamente e o `EXTERNAL-IP` do ingress preenchido.
 
 ---
 
-### Solução adotada no AWS Academy: Application Load Balancer manual
+### Solução adotada no AWS Academy: ALB manual
 
-### Tags nas subnets (necessário para EKS)
+#### Passo 1 — Descobrir os IDs necessários
+
+```bash
+# Subnets do cluster EKS
+aws eks describe-cluster \
+  --name fiap-clusters \
+  --query 'cluster.resourcesVpcConfig.subnetIds' \
+  --output table --region us-east-1
+
+# VPC ID do cluster
+aws eks describe-cluster \
+  --name fiap-clusters \
+  --query 'cluster.resourcesVpcConfig.vpcId' \
+  --output text --region us-east-1
+
+# Security Group dos nodes
+aws ec2 describe-security-groups \
+  --filters "Name=vpc-id,Values=<VPC_ID>" \
+  --query 'SecurityGroups[*].[GroupId,GroupName]' \
+  --output table --region us-east-1
+
+# AZ de cada node (crucial para escolher subnets do ALB)
+aws ec2 describe-instances \
+  --filters "Name=tag:kubernetes.io/cluster/fiap-clusters,Values=owned" \
+  --region us-east-1 \
+  --query "Reservations[*].Instances[*].{ID:InstanceId,AZ:Placement.AvailabilityZone,Subnet:SubnetId}" \
+  --output table
+```
+
+#### Passo 2 — Taguear as subnets
+
+> ⚠️ **Importante:** Use array bash com `"${SUBNETS[@]}"` para iterar corretamente — passar a string inteira como argumento único causará erro `InvalidID`.
 
 ```bash
 CLUSTER="fiap-clusters"
-SUBNETS="subnet-0fae396ae957a7af4 subnet-00249390623fad2c6 subnet-0f410504754070084 subnet-0b67ac8dfff349166 subnet-002c6b0620731b20e"
+SUBNETS=(
+  "subnet-04ab10693fea1bdcf"
+  "subnet-0b34ff5331892a52a"
+  "subnet-081d478c2c8a3a908"
+  "subnet-00d58a3dbeab35fb8"
+  "subnet-05043c6603a41a4a1"
+)
 
-for subnet in $SUBNETS; do
-  aws ec2 create-tags --resources $subnet \
+for subnet in "${SUBNETS[@]}"; do
+  echo "Tagueando $subnet..."
+  aws ec2 create-tags --resources "$subnet" \
     --tags \
       Key=kubernetes.io/cluster/$CLUSTER,Value=shared \
       Key=kubernetes.io/role/elb,Value=1 \
@@ -460,148 +562,186 @@ for subnet in $SUBNETS; do
 done
 ```
 
-### Criar o ALB apontando para o NodePort do ingress-nginx (32308)
+#### Passo 3 — Criar ALB, Target Group e Listener
 
-> **Como descobrir as subnets e demais IDs em um ambiente novo:**
-> ```bash
-> # Subnets do cluster EKS (use ao menos 2, em AZs diferentes)
-> aws eks describe-cluster \
->   --name fiap-clusters \
->   --query 'cluster.resourcesVpcConfig.subnetIds' \
->   --output text --region us-east-1
->
-> # VPC ID do cluster
-> aws eks describe-cluster \
->   --name fiap-clusters \
->   --query 'cluster.resourcesVpcConfig.vpcId' \
->   --output text --region us-east-1
->
-> # Security Group dos nodes (procure o grupo com "eks-cluster-sg" ou filtre pela VPC)
-> aws ec2 describe-security-groups \
->   --filters "Name=vpc-id,Values=<VPC_ID>" \
->   --query 'SecurityGroups[*].[GroupId,GroupName]' \
->   --output table --region us-east-1
->
-> # Instance IDs dos nodes do cluster
-> aws ec2 describe-instances \
->   --filters "Name=tag:eks:cluster-name,Values=fiap-clusters" "Name=instance-state-name,Values=running" \
->   --query 'Reservations[*].Instances[*].InstanceId' \
->   --output text --region us-east-1
-> ```
+> ⚠️ **Importante:** O ALB precisa ter subnets nas mesmas AZs dos nodes. Nodes em AZs não cobertas ficam com status `unused` e o ALB retorna 502/503.
 
 ```bash
-NODE_SG="sg-0b2a47f746b7fd2de"
-VPC_ID="vpc-0218e857ac8dc68d7"
+NODE_SG="sg-09650fb07146451df"
+VPC_ID="vpc-05da6afadff5c6e2c"
 
-# Criar o ALB
+# Criar o ALB (inclua subnets das AZs onde os nodes estão)
 ALB_ARN=$(aws elbv2 create-load-balancer \
   --name fiap-ingress-lb \
   --type application \
   --scheme internet-facing \
-  --subnets subnet-0fae396ae957a7af4 subnet-00249390623fad2c6 subnet-0f410504754070084 \
-  --security-groups $NODE_SG \
+  --subnets subnet-04ab10693fea1bdcf subnet-0b34ff5331892a52a subnet-05043c6603a41a4a1 \
+  --security-groups ${NODE_SG} \
   --region us-east-1 \
   --query 'LoadBalancers[0].LoadBalancerArn' \
   --output text)
 
-# Criar o Target Group apontando para o NodePort do ingress-nginx (32308)
+echo "ALB ARN: $ALB_ARN"
+
+# Criar Target Group apontando para o NodePort do ingress-nginx (32308)
 TG_ARN=$(aws elbv2 create-target-group \
   --name fiap-ingress-tg \
   --protocol HTTP \
   --port 32308 \
-  --vpc-id $VPC_ID \
+  --vpc-id ${VPC_ID} \
   --target-type instance \
   --region us-east-1 \
   --query 'TargetGroups[0].TargetGroupArn' \
   --output text)
 
-# Registrar os nodes no Target Group
+echo "TG ARN: $TG_ARN"
+
+# Registrar os nodes automaticamente
+NODE_IDS=$(aws ec2 describe-instances \
+  --filters "Name=tag:kubernetes.io/cluster/fiap-clusters,Values=owned" \
+  --region us-east-1 \
+  --query "Reservations[*].Instances[*].InstanceId" \
+  --output text)
+
+TARGETS=$(echo $NODE_IDS | tr ' ' '\n' | sed 's/.*/Id=&/')
+
 aws elbv2 register-targets \
-  --target-group-arn $TG_ARN \
-  --targets Id=i-0eaedbcf5f202cc65 Id=i-0e1289f99316458c3 \
+  --target-group-arn ${TG_ARN} \
+  --targets ${TARGETS} \
   --region us-east-1
 
-# Criar o Listener na porta 80 encaminhando para o Target Group
+# Criar Listener na porta 80
 aws elbv2 create-listener \
-  --load-balancer-arn $ALB_ARN \
+  --load-balancer-arn ${ALB_ARN} \
   --protocol HTTP \
   --port 80 \
-  --default-actions Type=forward,TargetGroupArn=$TG_ARN \
+  --default-actions Type=forward,TargetGroupArn=${TG_ARN} \
   --region us-east-1
 
 # Liberar portas no SG dos nodes
 aws ec2 authorize-security-group-ingress \
-  --group-id $NODE_SG --protocol tcp --port 80 --cidr 0.0.0.0/0 --region us-east-1
+  --group-id ${NODE_SG} --protocol tcp --port 80 --cidr 0.0.0.0/0 --region us-east-1
 
 aws ec2 authorize-security-group-ingress \
-  --group-id $NODE_SG --protocol tcp --port 32308 --cidr 0.0.0.0/0 --region us-east-1
+  --group-id ${NODE_SG} --protocol tcp --port 32308 --cidr 0.0.0.0/0 --region us-east-1
 
-# Obter o DNS do ALB (atualizar a Base URL nas seções seguintes)
-aws elbv2 describe-load-balancers \
+# Obter o DNS do ALB
+BASE_URL=$(aws elbv2 describe-load-balancers \
   --names fiap-ingress-lb \
   --query 'LoadBalancers[0].DNSName' \
   --output text \
-  --region us-east-1
+  --region us-east-1)
+
+echo "Base URL: http://$BASE_URL"
 ```
+
+> ⚠️ **Atenção:** Ao recriar o ALB, o DNS muda. Sempre obtenha o DNS atual com o comando acima. O Listener e o Target Group também precisam ser recriados quando o ALB é deletado.
 
 ---
 
 ## 11. Configurar SERVICE_API_KEY no evaluation-service
 
-Após criar a primeira API key via auth-service, configurar no secret do evaluation-service:
+O `evaluation-service` precisa de uma API Key válida para se autenticar no `flag-service` e `targeting-service`. Sem ela, todas as avaliações retornam `401` e o endpoint `/evaluate` falha com `"Erro interno ao avaliar a flag"`.
 
 ```bash
-MASTER_KEY=""
-BASE="http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com"
+BASE="http://$(aws elbv2 describe-load-balancers \
+  --names fiap-ingress-lb \
+  --query 'LoadBalancers[0].DNSName' \
+  --output text --region us-east-1)"
+
+MASTER_KEY=$(kubectl get secret auth-service-secret -n auth-service \
+  -o jsonpath='{.data.MASTER_KEY}' | base64 -d)
+
+echo "BASE: $BASE"
+echo "MASTER_KEY: $MASTER_KEY"
 
 # Criar API key
 API_KEY=$(curl -s -X POST $BASE/auth/admin/keys \
   -H "Authorization: Bearer $MASTER_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name": "service-key", "description": "Chave interna"}' \
-  | grep -o '"key":"[^"]*"' | cut -d'"' -f4)
+  -d '{"name": "evaluation-service-key"}' | jq -r '.key')
 
-# Atualizar o secret
+echo "API_KEY: $API_KEY"
+
+# Atualizar o secret do evaluation-service
 API_KEY_B64=$(echo -n "$API_KEY" | base64 -w0)
 kubectl patch secret evaluation-service-secret -n evaluation-service \
   --type='json' \
   -p="[{\"op\": \"replace\", \"path\": \"/data/SERVICE_API_KEY\", \"value\": \"$API_KEY_B64\"}]"
 
 kubectl rollout restart deployment/evaluation-service -n evaluation-service
+kubectl rollout status deployment/evaluation-service -n evaluation-service
 ```
 
 ---
 
-## 12. Formato correto da Targeting Rule
+## 12. Criar flag e regra de teste
 
-O evaluation-service espera o formato:
-```json
-{"type": "PERCENTAGE", "value": 50}
+Antes de rodar os testes, crie a flag e a regra de targeting:
+
+```bash
+BASE="http://fiap-ingress-lb-450359770.us-east-1.elb.amazonaws.com"
+API_KEY="<sua-api-key>"
+
+# Criar a flag
+curl -s -X POST $BASE/flags/flags \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "test-flag", "description": "flag de teste", "is_enabled": true}'
+
+# Criar a regra de targeting
+curl -s -X POST $BASE/targeting/rules \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"flag_name": "test-flag", "is_enabled": true, "rules": {"type": "PERCENTAGE", "value": 50}}'
 ```
 
-**NÃO** usar o formato `{"PERCENTAGE": 50}`.
+> ⚠️ **Formato correto da Targeting Rule:** `{"type": "PERCENTAGE", "value": 50}` — **não** usar `{"PERCENTAGE": 50}`.
 
 ---
 
 ## 13. Endpoints disponíveis
 
-Base URL: `http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com`
+Base URL: `http://fiap-ingress-lb-450359770.us-east-1.elb.amazonaws.com`
 
 | Serviço | Método | Endpoint | Auth |
 |---|---|---|---|
+| auth | GET | `/auth/health` | nenhuma |
 | auth | POST | `/auth/admin/keys` | MASTER_KEY |
 | auth | GET | `/auth/validate` | API_KEY |
+| flags | GET | `/flags/health` | nenhuma |
 | flags | GET/POST | `/flags/flags` | API_KEY |
-| flags | GET/PUT/DELETE | `/flags/flags/<name>` | API_KEY |
+| flags | GET/PUT/DELETE | `/flags/flags/<n>` | API_KEY |
+| targeting | GET | `/targeting/health` | nenhuma |
 | targeting | POST | `/targeting/rules` | API_KEY |
 | targeting | GET/PUT/DELETE | `/targeting/rules/<flag_name>` | API_KEY |
+| evaluation | GET | `/evaluate/health` | nenhuma |
 | evaluation | GET | `/evaluate/evaluate?flag_name=X&user_id=Y` | nenhuma |
+| analytics | GET | `/analytics/health` | nenhuma |
 
 ---
 
-## 14. Observações importantes (AWS Academy)
+## 14. Problemas encontrados e soluções
+
+| Problema | Causa | Solução |
+|---|---|---|
+| `CrashLoopBackOff` no auth-service | `sslmode=disable` — RDS exige SSL | Trocar para `sslmode=require` na connection string |
+| `database "authdb" does not exist` | RDS cria apenas o banco `postgres` por padrão | Criar o banco `authdb` manualmente via psql-client antes de criar a tabela |
+| `relation "targeting_rules" does not exist` | Migration não rodada no namespace e banco corretos | Criar a tabela no namespace `targeting-service` apontando para o banco correto |
+| `503 Service Temporarily Unavailable` | ExternalName services não têm ClusterIP — ingress-nginx não consegue rotear | Substituir ExternalName por Services + Endpoints manuais com ClusterIPs |
+| `Target.NotInUse` no Target Group | Nodes em AZs não cobertas pelo ALB | Verificar AZs dos nodes e recriar ALB com subnets correspondentes |
+| `evaluation-service` retornando `401` | `SERVICE_API_KEY` vazia no secret | Criar API Key via auth-service e atualizar o secret via `kubectl patch` |
+| `analytics-serviceatest` no docker tag | `$SERVICE` sem chaves concatenou com texto adjacente | Usar `${SERVICE}` com chaves em todos os comandos do loop |
+| DNS do ALB não resolve | ALB recriado gera novo DNS | Sempre obter o DNS atual via `aws elbv2 describe-load-balancers` |
+| `CacheClusterNotFound` no ElastiCache | Redis criado como ReplicationGroup, não CacheCluster | Usar `describe-replication-groups` em vez de `describe-cache-clusters` |
+
+---
+
+## 15. Observações importantes (AWS Academy)
 
 - **Credenciais AWS expiram** ao encerrar o lab — repetir o passo 1 a cada nova sessão
-- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o LB manual criado no passo 10
-- Não é possível modificar IAM roles (sem `iam:AttachRolePolicy`)
-- O `LabRole` já possui permissões suficientes para EKS, RDS, ElastiCache e SQS
+- O `EXTERNAL-IP` do ingress-nginx ficará `<pending>` — usar o ALB manual criado no passo 10
+- Não é possível criar novas IAM roles (`iam:AttachRolePolicy` bloqueado) — por isso o AWS Load Balancer Controller não funciona
+- A `LabRole` já possui permissões suficientes para EKS, RDS, ElastiCache, SQS e DynamoDB
+- ClusterIPs dos services podem mudar se forem recriados — atualizar os Endpoints no `ingress.yaml` nesse caso
+- Ao recriar o ALB, o Listener e o Target Group também precisam ser recriados manualmente
