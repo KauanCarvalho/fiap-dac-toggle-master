@@ -1,5 +1,5 @@
-BASE="http://fiap-ingress-lb-932060456.us-east-1.elb.amazonaws.com"
-API_KEY=""
+BASE="http://fiap-ingress-lb-450359770.us-east-1.elb.amazonaws.com"
+API_KEY="tm_key_ca886c89a7c225b8769b98e945601b15d61417d69c1df952e559c101aa1344c8"
 
 echo "=== TESTE: Flag desabilitada ==="
 curl -s -X PUT $BASE/flags/flags/test-flag \
