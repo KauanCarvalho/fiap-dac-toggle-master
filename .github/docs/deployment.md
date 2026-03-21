@@ -31,7 +31,7 @@ echo "SECRET: $SECRET"
 echo "TOKEN:  $TOKEN"
 ```
 
-Editar `k8s/analytics-service/secret.yaml` e `k8s/evaluation-service/secret.yaml` com os valores gerados:
+Editar [`k8s/analytics-service/secret.yaml`](../../k8s/analytics-service/secret.yaml) e [`k8s/evaluation-service/secret.yaml`](../../k8s/evaluation-service/secret.yaml) com os valores gerados:
 
 ```yaml
 data:
@@ -49,7 +49,8 @@ kubectl rollout restart deployment/analytics-service -n analytics-service
 kubectl rollout restart deployment/evaluation-service -n evaluation-service
 ```
 
-> ⚠️ **Atenção:** Isso deve ser repetido a cada nova sessão do AWS Academy, pois as credenciais expiram ao encerrar o lab.
+> [!WARNING]
+> **Atenção:** Isso deve ser repetido a cada nova sessão do AWS Academy, pois as credenciais expiram ao encerrar o lab.
 
 ---
 
@@ -66,7 +67,7 @@ echo "MASTER_KEY: $MASTER_KEY"
 echo "Base64:     $MASTER_KEY_B64"
 ```
 
-Editar `k8s/auth-service/secret.yaml`:
+Editar [`k8s/auth-service/secret.yaml`](../../k8s/auth-service/secret.yaml):
 
 ```yaml
 data:
@@ -77,11 +78,12 @@ data:
 Aplicar:
 
 ```bash
-kubectl apply -f k8s/auth-service/secret.yaml
+kubectl apply -f ../../k8s/auth-service/secret.yaml
 kubectl rollout restart deployment/auth-service -n auth-service
 ```
 
-> ⚠️ **Guarde o valor original da MASTER_KEY** — ela será necessária para criar API Keys via `/auth/admin/keys`.
+> [!IMPORTANT]
+> **Guarde o valor original da MASTER_KEY** — ela será necessária para criar API Keys via `/auth/admin/keys`.
 
 ---
 
@@ -110,7 +112,8 @@ aws ecr get-login-password --region ${REGION} \
 
 ### Build e push de cada imagem
 
-> ⚠️ **Importante:** Use `${SERVICE}` com chaves para evitar que o bash concatene o nome da variável com texto adjacente (ex: o bug `analytics-serviceatest`).
+> [!IMPORTANT]
+> **Importante:** Use `${SERVICE}` com chaves para evitar que o bash concatene o nome da variável com texto adjacente (ex: o bug `analytics-serviceatest`).
 
 ```bash
 for SERVICE in auth-service flag-service targeting-service evaluation-service analytics-service; do
@@ -122,7 +125,7 @@ for SERVICE in auth-service flag-service targeting-service evaluation-service an
 done
 ```
 
-Após o push, atualize o campo `image` nos `deployment.yaml` de cada serviço:
+Após o push, atualize o campo `image` nos [`deployment.yaml`](../../k8s/) de cada serviço:
 ```
 image: 244257696167.dkr.ecr.us-east-1.amazonaws.com/<service>:latest
 ```
@@ -131,7 +134,7 @@ image: 244257696167.dkr.ecr.us-east-1.amazonaws.com/<service>:latest
 
 ## 4. Alterações nos manifestos K8s
 
-### analytics-service/deployment.yaml
+### [`analytics-service/deployment.yaml`](../../k8s/analytics-service/deployment.yaml)
 Adicionado `envFrom` para injetar as credenciais AWS do secret:
 
 ```yaml
@@ -140,7 +143,7 @@ envFrom:
       name: analytics-service-secret
 ```
 
-### evaluation-service/deployment.yaml
+### [`evaluation-service/deployment.yaml`](../../k8s/evaluation-service/deployment.yaml)
 Adicionado `envFrom` para injetar `SERVICE_API_KEY` e credenciais AWS:
 
 ```yaml
@@ -149,7 +152,7 @@ envFrom:
       name: evaluation-service-secret
 ```
 
-### evaluation-service/secret.yaml
+### [`evaluation-service/secret.yaml`](../../k8s/evaluation-service/secret.yaml)
 Adicionados campos AWS além do `SERVICE_API_KEY`:
 
 ```yaml
@@ -160,7 +163,7 @@ data:
   AWS_SESSION_TOKEN: "<base64>"
 ```
 
-### ingress.yaml — ExternalName services substituídos por Endpoints manuais
+### [`ingress.yaml`](../../k8s/ingress.yaml) — ExternalName services substituídos por Endpoints manuais
 
 O ingress-nginx não consegue rotear para `ExternalName` services cross-namespace pois eles não possuem ClusterIP. A solução foi substituir por Services com Endpoints manuais apontando diretamente para os ClusterIPs dos serviços.
 
@@ -439,7 +442,7 @@ aws sqs get-queue-url \
   --output text
 ```
 
-Atualizar `k8s/evaluation-service/configmap.yaml` e `k8s/analytics-service/configmap.yaml` com a URL retornada:
+Atualizar [`k8s/evaluation-service/configmap.yaml`](../../k8s/evaluation-service/configmap.yaml) e [`k8s/analytics-service/configmap.yaml`](../../k8s/analytics-service/configmap.yaml) com a URL retornada:
 
 ```yaml
 AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/evaluation-events"
