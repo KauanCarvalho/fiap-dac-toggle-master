@@ -17,6 +17,14 @@ Turma: _DevOps_ e Arquitetura _Cloud_ Pós _Tech_ — **2DCLT**.
 - [YouTube](https://www.youtube.com/watch?v=LrNKeC5Ae-8).
 - [Google Drive](https://drive.google.com/file/d/1ASogE9Jnm5OR0hYGPjPynth36SH6ZNkN/view?usp=drive_link).
 
+### Pontuação Extra (Google Cloud Skills Boost)
+
+O integrante abaixo concluiu a trilha de especialização solicitada para aprimoramento de conhecimentos em orquestração:
+
+*   **Aluno**: Kauan Carvalho Calasans (RM370203)
+*   **Curso**: *Manage Kubernetes in Google Cloud*
+*   **Evidências**: [Credly Badge Public URL](https://www.credly.com/badges/211c2782-986c-4e60-8c16-b1448f29a311/public_url) | [Credly Badge](https://www.credly.com/badges/211c2782-986c-4e60-8c16-b1448f29a311)
+
 ## Introdução
 
 Com o sucesso do MVP monolítico na Fase 1, o _ToggleMaster_ evoluiu para uma arquitetura de microsserviços para suportar o aumento de demanda. A **Fase 2** foca na conteinerização, infraestrutura em nuvem e orquestração escalável no **AWS EKS**.
