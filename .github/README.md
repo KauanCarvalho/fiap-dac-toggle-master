@@ -127,8 +127,8 @@ Próximos passos na infraestrutura da AWS (para implantação no Kubernetes).
 > [!NOTE]
 > Para detalhes avançados de infraestrutura e procedimentos de implantação, consulte os guias na pasta [`docs`](.github/docs/):
 >
-> *   [**Guia de Deploy em Produção (EKS)**](.github/docs/deployment.md)
-> *   [**Checklist Pré-Deploy**](.github/docs/checklist-before-deploy.md)
+> *   [**Guia de Deploy em Produção (EKS)**](./docs/deployment.md)
+> *   [**Checklist Pré-Deploy**](./docs/checklist-before-deploy.md)
 
 ---
 
@@ -172,7 +172,7 @@ Desenvolvimento dos `.yaml` para o Deploy no EKS. Seguindo as boas práticas ope
 - [x] Injetar as proteções *LivenessProbe* e *ReadinessProbe*.
 
 > [!TIP]
-> Antes de aplicar os manifestos, certifique-se de seguir o [**Checklist Pré-Deploy**](.github/docs/checklist-before-deploy.md) para garantir que todos os placeholders e segredos foram preenchidos corretamente.
+> Antes de aplicar os manifestos, certifique-se de seguir o [**Checklist Pré-Deploy**](./docs/checklist-before-deploy.md) para garantir que todos os placeholders e segredos foram preenchidos corretamente.
 
 ---
 
