@@ -13,6 +13,9 @@ DEFAULT_PORT="${PORT_AUTH_SERVICE:-8001}"
 DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
+# Clean up MASTER_KEY_AUTH_SERVICE from any invisible characters/newlines
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+
 echo "Using base URL: $BASE_URL"
 echo "---------------------------------------------"
 
@@ -31,7 +34,7 @@ if [[ "$status" -ne 200 ]]; then
 fi
 
 # 2. Key Management check
-echo "Creating API key..."
+echo "Creating API key... (Using MASTER_KEY: ${MASTER_KEY_AUTH_SERVICE:-NOT_SET})"
 
 key_name="check-script-key"
 resp=$(call POST "$BASE_URL/admin/keys" \

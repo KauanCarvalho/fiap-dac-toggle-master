@@ -13,6 +13,9 @@ DEFAULT_PORT="${PORT_ANALYTICS_SERVICE:-8005}"
 DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
+# Clean up variables from any invisible characters/newlines
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+
 echo "Using base URL: $BASE_URL"
 echo "---------------------------------------------"
 
@@ -37,15 +40,14 @@ echo "Verifying processed events in DynamoDB..."
 echo "Waiting 5 seconds for background worker to process messages..."
 sleep 5
 
-# Cloud Readiness: Prefer local docker exec for localstack, 
-# but could be updated for aws cli if AWS_ENDPOINT_URL is set for cloud.
-if [[ -n "${AWS_ENDPOINT_URL:-}" && "${AWS_ENDPOINT_URL}" != *"localstack"* ]]; then
+# Cloud Readiness: Detect if we should use real AWS or LocalStack
+if [[ -n "${AWS_SESSION_TOKEN:-}" ]] || [[ "${AWS_ENDPOINT_URL:-}" != *"localstack"* && -n "${AWS_ENDPOINT_URL:-}" ]]; then
   echo "Checking remote DynamoDB..."
-  aws dynamodb scan --table-name evaluation-events-table --max-items 5 --region "${AWS_REGION:-us-east-1}"
+  aws dynamodb scan --table-name analytics-events --max-items 5 --region "${AWS_REGION:-us-east-1}"
 else
   echo "Checking LocalStack DynamoDB..."
   docker exec localstack awslocal dynamodb scan \
-    --table-name evaluation-events-table \
+    --table-name analytics-events \
     --max-items 5
 fi
 

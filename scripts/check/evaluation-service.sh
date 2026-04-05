@@ -13,6 +13,10 @@ DEFAULT_PORT="${PORT_EVALUATION_SERVICE:-8004}"
 DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
+# Clean up variables from any invisible characters/newlines
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+EVALUATION_SERVICE_API_KEY=$(echo "${EVALUATION_SERVICE_API_KEY:-tm_key_local_evaluation_service_fixed_key_123}" | tr -d '\r\n ' )
+
 FLAG_NAME="eval-check-flag-$(random_string)"
 USER_ID="user-$(random_string)"
 
@@ -36,14 +40,13 @@ fi
 # 2. Setup Dependencies
 echo "Setting up flag and rule for evaluation check..."
 
-FLAG_BASE_URL="${FLAG_SERVICE_EXTERNAL_URL:-http://localhost:${PORT_FLAG_SERVICE:-8002}}"
-TARGETING_BASE_URL="${TARGETING_SERVICE_EXTERNAL_URL:-http://localhost:${PORT_TARGETING_SERVICE:-8003}}"
+FLAG_BASE_URL="${FLAG_SERVICE_URL:-http://localhost:${PORT_FLAG_SERVICE:-8002}}"
+TARGETING_BASE_URL="${TARGETING_SERVICE_URL:-http://localhost:${PORT_TARGETING_SERVICE:-8003}}"
 
 # Use pre-seeded Service API Key for evaluation-service to call others
 SERVICE_API_KEY="${EVALUATION_SERVICE_API_KEY:-tm_key_local_evaluation_service_fixed_key_123}"
 AUTH_HEADER="Authorization: Bearer $SERVICE_API_KEY"
 
-echo "Creating flag '$FLAG_NAME' via flag-service..."
 resp=$(call POST "$FLAG_BASE_URL/flags" \
   "{\"name\":\"$FLAG_NAME\",\"is_enabled\":true,\"description\":\"Evaluation check\"}" \
   "$AUTH_HEADER")
