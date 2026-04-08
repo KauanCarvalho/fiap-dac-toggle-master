@@ -1,0 +1,19 @@
+name: Lint Auth Service
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'local/services/auth-service/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'local/services/auth-service/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    uses: ./.github/workflows/reusable-lint-go.yml
+    with:
+      service_path: local/services/auth-service
+      go_version: '1.24'

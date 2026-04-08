@@ -91,3 +91,19 @@ curl -X PUT http://localhost:8003/rules/enable-new-dashboard \
 }'
 ```
 Saída esperada: (O JSON da regra atualizada, com `"value": 75`).
+
+## Qualidade de Código (Linting)
+
+Este projeto utiliza o **`flake8`** para garantir a qualidade e padronização do código Python. As regras de estilo estão definidas no arquivo `.flake8`.
+
+### Como rodar localmente:
+
+1.  **Instale o `flake8`**:
+    ```bash
+    pip install flake8
+    ```
+
+2.  **Execute o linter na raiz desta pasta:**
+    ```bash
+    flake8 .
+    ```

@@ -89,3 +89,17 @@ curl http://localhost:8001/validate \
 ```
 
 Saída esperada: `Chave de API inválida ou inativa`
+
+## Qualidade de Código (Linting)
+
+Este projeto utiliza o **`golangci-lint`** para garantir a qualidade e padronização do código Go. As regras estão definidas no arquivo `.golangci.yml`.
+
+### Como rodar localmente:
+
+1.  **Instale o `golangci-lint`** (se ainda não tiver):
+    Instruções oficiais: [https://golangci-lint.run/usage/install/](https://golangci-lint.run/usage/install/)
+
+2.  **Execute o linter na raiz desta pasta:**
+    ```bash
+    golangci-lint run
+    ```

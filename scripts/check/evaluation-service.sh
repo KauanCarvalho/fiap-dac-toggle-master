@@ -14,7 +14,7 @@ DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
 # Clean up variables from any invisible characters/newlines
-MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-auth_master_key}" | tr -d '\r\n ' )
 EVALUATION_SERVICE_API_KEY=$(echo "${EVALUATION_SERVICE_API_KEY:-tm_key_local_evaluation_service_fixed_key_123}" | tr -d '\r\n ' )
 
 FLAG_NAME="eval-check-flag-$(random_string)"
@@ -67,8 +67,6 @@ if [[ "$(response_status "$resp")" -ne 201 ]]; then
   echo "Rule creation failed!"
   exit 1
 fi
-
-echo "---------------------------------------------"
 
 # 3. Perform Evaluation
 echo "Checking evaluation for user '$USER_ID' on flag '$FLAG_NAME'..."

@@ -103,3 +103,19 @@ INFO:Evento ... (Flag: enable-new-dashboard) salvo no DynamoDB.
 Vá até o console da AWS, abra o **DynamoDB**, selecione a tabela `ToggleMasterAnalytics` e clique em "Explore table items".
 
 Você verá os itens que o worker acabou de inserir.
+
+## Qualidade de Código (Linting)
+
+Este projeto utiliza o **`flake8`** para garantir a qualidade e padronização do código Python. As regras de estilo estão definidas no arquivo `.flake8`.
+
+### Como rodar localmente:
+
+1.  **Instale o `flake8`**:
+    ```bash
+    pip install flake8
+    ```
+
+2.  **Execute o linter na raiz desta pasta:**
+    ```bash
+    flake8 .
+    ```

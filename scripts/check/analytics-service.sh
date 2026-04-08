@@ -14,7 +14,7 @@ DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
 # Clean up variables from any invisible characters/newlines
-MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-auth_master_key}" | tr -d '\r\n ' )
 
 echo "Using base URL: $BASE_URL"
 echo "---------------------------------------------"

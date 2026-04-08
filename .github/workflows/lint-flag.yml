@@ -1,0 +1,19 @@
+name: Lint Flag Service
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'local/services/flag-service/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'local/services/flag-service/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    uses: ./.github/workflows/reusable-lint-python.yml
+    with:
+      service_path: local/services/flag-service
+      python_version: '3.11'
