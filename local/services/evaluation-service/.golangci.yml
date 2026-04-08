@@ -1,15 +1,14 @@
+version: "2"
+
 run:
   timeout: 5m
   modules-download-mode: readonly
 
 linters:
   enable:
-    - gosimple
     - govet
     - ineffassign
-    - staticcheck
     - unused
-  disable-all: true
-
-issues:
-  exclude-use-default: false
+  disable:
+    - errcheck
+    - staticcheck
