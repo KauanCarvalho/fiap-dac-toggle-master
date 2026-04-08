@@ -95,9 +95,9 @@ kaboom:
 localstack-setup:
 	@echo "Creating SQS queue 'evaluation-events' in LocalStack..."
 	@docker exec localstack awslocal sqs create-queue --queue-name evaluation-events || echo "Queue might already exist"
-	@echo "Creating DynamoDB table 'evaluation-events-table' in LocalStack..."
+	@echo "Creating DynamoDB table 'analytics-events' in LocalStack..."
 	@docker exec localstack awslocal dynamodb create-table \
-		--table-name evaluation-events-table \
+		--table-name analytics-events \
 		--attribute-definitions AttributeName=event_id,AttributeType=S \
 		--key-schema AttributeName=event_id,KeyType=HASH \
 		--provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 || echo "Table might already exist"

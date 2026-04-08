@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 
 INSERT INTO api_keys (name, key_hash) 
-VALUES ('local-evaluation-service-seed-key', 'd764f1dc515db52f4473c3158a64c651c724f1d3229e685388ff38938444859d')
+VALUES ('local-evaluation-service-seed-key', 'b06dc739b0b7498efc16dc28a1ce7387781fcbeb83d388644e3ddc96230ded8c')
 ON CONFLICT (key_hash) DO NOTHING;

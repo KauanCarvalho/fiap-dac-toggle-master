@@ -13,6 +13,9 @@ DEFAULT_PORT="${PORT_FLAG_SERVICE:-8002}"
 DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
+# Clean up variables from any invisible characters/newlines
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+
 echo "Using base URL: $BASE_URL"
 echo "---------------------------------------------"
 
@@ -37,7 +40,8 @@ if [[ -n "${FLAG_SERVICE_API_KEY:-}" ]]; then
   AUTH_HEADER="Authorization: Bearer $FLAG_SERVICE_API_KEY"
 else
   echo "FLAG_SERVICE_API_KEY not set - creating a temporary key via auth-service..."
-  AUTH_SERVICE_URL="http://localhost:${PORT_AUTH_SERVICE:-8001}"
+  # Use AUTH_SERVICE_URL from environment or fallback to localhost
+  AUTH_SERVICE_URL="${AUTH_SERVICE_URL:-http://localhost:${PORT_AUTH_SERVICE:-8001}}"
   MASTER_KEY="${MASTER_KEY_AUTH_SERVICE:-super-secret-key}"
   
   key_resp=$(call POST "$AUTH_SERVICE_URL/admin/keys" \

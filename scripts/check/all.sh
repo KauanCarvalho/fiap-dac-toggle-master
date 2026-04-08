@@ -29,9 +29,11 @@ for i in "${!SERVICES[@]}"; do
   echo "[$((i+1))/$TOTAL_SERVICES] Checking: $SVC..."
   echo "----------------------------------------------------------------"
   
-  # Forward environment variables for cloud URLs if provided
-  # Example: AUTH_SERVICE_URL, FLAG_SERVICE_URL, etc.
-  if "$SCRIPT_DIR/$SVC.sh"; then
+  # Format variable name (e.g. AUTH_SERVICE_URL from auth-service)
+  VAR_NAME="$(echo "${SVC}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')_URL"
+  SVC_URL="${!VAR_NAME:-}"
+
+  if "$SCRIPT_DIR/$SVC.sh" "$SVC_URL"; then
     echo "SUCCESS: $SVC is operational"
     SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
   else
