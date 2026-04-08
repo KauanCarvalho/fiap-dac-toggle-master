@@ -44,9 +44,31 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
+      - name: Build Docker image
+        id: build-image
+        run: |
+          IMAGE_NAME="${{ inputs.ecr_repository }}:${{ env.TAG }}"
+          docker build -t $IMAGE_NAME local/services/${{ inputs.service_name }}
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}
+          trivy-config: .trivy.yaml
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag and push image to ECR
+        id: push-image
+        run: |
+          FULL_IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}"
+          docker tag ${{ env.IMAGE_NAME }} $FULL_IMAGE_URI
+          docker push $FULL_IMAGE_URI
+          echo "FULL_IMAGE_URI=$FULL_IMAGE_URI" >> $GITHUB_ENV
+          echo "image_uri=$FULL_IMAGE_URI" >> $GITHUB_OUTPUT
 
       - name: Generate GitHub App token
         id: app-token
@@ -57,15 +79,6 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: fiap-dac-toggle-master-gitops
 
-      - name: Build and push image
-        id: build-image
-        run: |
-          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr_repository }}:${{ env.TAG }}"
-          docker build -t $IMAGE_URI local/services/${{ inputs.service_name }}
-          docker push $IMAGE_URI
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
-
       - name: Checkout GitOps repository
         uses: actions/checkout@v4
         with:
@@ -75,7 +88,7 @@ jobs:
 
       - name: Update Kubernetes manifests
         run: |
-          export IMAGE_URI=${{ env.IMAGE_URI }}
+          export IMAGE_URI=${{ env.FULL_IMAGE_URI }}
           mkdir -p gitops-repo/k8s/apps/${{ inputs.service_name }}
           envsubst < gitops-repo/k8s/templates/${{ inputs.service_name }}/deployment.tmpl.yaml > gitops-repo/k8s/apps/${{ inputs.service_name }}/deployment.yaml
 

@@ -64,7 +64,7 @@ O ciclo de vida de desenvolvimento é blindado por ferramentas de análise está
 | **Static Analysis** | Linters | Verificação de conformidade de estilo e sintaxe. | [x] |
 | **SCA** | **Trivy (fs)** | Análise de vulnerabilidades em bibliotecas de terceiros. | [ ] |
 | **SAST** | **Gosec / Bandit** | Busca por padrões inseguros no código-fonte em Go e Python. | [ ] |
-| **Container Scan** | **Trivy (image)** | Verificação de vulnerabilidades na imagem final gerada. | [ ] |
+| **Container Scan** | **Trivy (image)** | Verificação de vulnerabilidades na imagem final gerada. | [x] |
 | **Docker Push** | AWS ECR | Envio da imagem tagueada com `COMMIT_SHA`. | [x] |
 
 ---
