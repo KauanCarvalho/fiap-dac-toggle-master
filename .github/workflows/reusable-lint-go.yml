@@ -1,0 +1,31 @@
+name: Reusable Go Lint
+
+on:
+  workflow_call:
+    inputs:
+      service_path:
+        required: true
+        type: string
+      go_version:
+        required: false
+        type: string
+        default: '1.24'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go_version }}
+          cache: true
+          cache-dependency-path: ${{ inputs.service_path }}/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ${{ inputs.service_path }}

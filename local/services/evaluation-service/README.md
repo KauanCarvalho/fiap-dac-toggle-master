@@ -99,5 +99,17 @@ Saída (exemplo): `{"flag_name":"enable-new-dashboard","user_id":"user-abc","res
 
 **3. Verifique o Cache:** Execute o mesmo comando duas vezes seguidas. Na segunda vez, você verá um log "Cache HIT" no terminal do `evaluation-service`.
 
-**4. Verifique a Fila SQS:** Após fazer as chamadas acima, vá até o console da AWS, abra sua fila SQS e verifique se as mensagens (`EvaluationEvent`) estão chegando.
 
+## Qualidade de Código (Linting)
+
+Este projeto utiliza o **`golangci-lint`** para garantir a qualidade e padronização do código Go. As regras estão definidas no arquivo `.golangci.yml`.
+
+### Como rodar localmente:
+
+1.  **Instale o `golangci-lint`** (se ainda não tiver):
+    Instruções oficiais: [https://golangci-lint.run/usage/install/](https://golangci-lint.run/usage/install/)
+
+2.  **Execute o linter na raiz desta pasta:**
+    ```bash
+    golangci-lint run
+    ```

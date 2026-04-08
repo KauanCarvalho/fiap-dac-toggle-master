@@ -14,7 +14,7 @@ DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
 # Clean up variables from any invisible characters/newlines
-MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-auth_master_key}" | tr -d '\r\n ' )
 
 echo "Using base URL: $BASE_URL"
 echo "---------------------------------------------"
@@ -41,7 +41,7 @@ else
   echo "TARGETING_SERVICE_API_KEY not set - creating a temporary key via auth-service..."
   # Use AUTH_SERVICE_URL from environment or fallback to localhost
   AUTH_SERVICE_URL="${AUTH_SERVICE_URL:-http://localhost:${PORT_AUTH_SERVICE:-8001}}"
-  MASTER_KEY="${MASTER_KEY_AUTH_SERVICE:-super-secret-key}"
+  MASTER_KEY="${MASTER_KEY_AUTH_SERVICE:-auth_master_key}"
   
   key_resp=$(call POST "$AUTH_SERVICE_URL/admin/keys" \
     '{"name":"temp-targeting-check-key"}' \

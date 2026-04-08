@@ -14,7 +14,7 @@ DEFAULT_BASE_URL="http://localhost:${DEFAULT_PORT}"
 BASE_URL="${1:-$DEFAULT_BASE_URL}"
 
 # Clean up MASTER_KEY_AUTH_SERVICE from any invisible characters/newlines
-MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-super-secret-key}" | tr -d '\r\n ' )
+MASTER_KEY_AUTH_SERVICE=$(echo "${MASTER_KEY_AUTH_SERVICE:-auth_master_key}" | tr -d '\r\n ' )
 
 echo "Using base URL: $BASE_URL"
 echo "---------------------------------------------"
@@ -39,7 +39,7 @@ echo "Creating API key... (Using MASTER_KEY: ${MASTER_KEY_AUTH_SERVICE:-NOT_SET}
 key_name="check-script-key"
 resp=$(call POST "$BASE_URL/admin/keys" \
   "{\"name\":\"$key_name\"}" \
-  "Authorization: Bearer ${MASTER_KEY_AUTH_SERVICE:-super-secret-key}")
+  "Authorization: Bearer ${MASTER_KEY_AUTH_SERVICE:-auth_master_key}")
 
 status=$(response_status "$resp")
 body=$(response_body "$resp")
