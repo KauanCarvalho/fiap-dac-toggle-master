@@ -161,3 +161,44 @@ jobs:
     uses: ./.github/workflows/reusable-sca.yml
     with:
       service_name: ${{ matrix.service }}
+
+  sonar:
+    name: SonarCloud Analysis
+    needs:
+      - build
+      - lint
+      - sca
+    if: needs.detect-changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build sources list
+        id: sources
+        run: |
+          SERVICES='${{ needs.detect-changes.outputs.services }}'
+
+          SOURCES=$(echo "$SERVICES" | jq -r '.[]' | sed 's|^|local/services/|' | paste -sd "," -)
+
+          if [ -z "$SOURCES" ]; then
+            echo "No sources to scan"
+            exit 0
+          fi
+
+          echo "sources=$SOURCES" >> $GITHUB_OUTPUT
+          echo "Sources: $SOURCES"
+
+      - name: SonarCloud Scan (SAST)
+        uses: SonarSource/sonarcloud-github-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=KauanCarvalho_fiap-dac-toggle-master
+            -Dsonar.organization=kauancarvalho
+            -Dsonar.sources=.
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.qualitygate.wait=true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
