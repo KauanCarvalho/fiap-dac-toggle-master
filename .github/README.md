@@ -92,29 +92,10 @@ Para homologar a integração entre os serviços e a infraestrutura Cloud, dispo
 
 ### Execução de Testes Automatizados
 
+Antes faça replace das envs no arquivo .env.prod.sample para .env.prod
+
 ```bash
-# Definir Endereço do Ingress
-export INGRESS_URL="http://ad0ec0dcd3d8f4fe6870c68b0ddda408-530315143.us-east-1.elb.amazonaws.com"
-
-# Credenciais de Autenticação
-export MASTER_KEY_AUTH_SERVICE="<AUTH_MASTER_KEY>"
-export EVALUATION_SERVICE_API_KEY="<SERVICE_API_KEY_VALIDA>"
-
-# Credenciais AWS para Analytics (Sessão Temporária AWS Academy)
-export AWS_ACCESS_KEY_ID="<ACCESS_KEY>"
-export AWS_SECRET_ACCESS_KEY="<SECRET_KEY>"
-export AWS_SESSION_TOKEN="<SESSION_TOKEN>"
-export AWS_REGION="us-east-1"
-
-# Mapeamento para o Script
-export AUTH_SERVICE_URL="$INGRESS_URL/auth"
-export FLAG_SERVICE_URL="$INGRESS_URL/flags"
-export TARGETING_SERVICE_URL="$INGRESS_URL/targeting"
-export EVALUATION_SERVICE_URL="$INGRESS_URL/evaluate"
-export ANALYTICS_SERVICE_URL="$INGRESS_URL/analytics"
-
-# Executar Validação no EKS
-./scripts/check/all.sh
+make check-all ENV=prod
 ```
 
 ---
