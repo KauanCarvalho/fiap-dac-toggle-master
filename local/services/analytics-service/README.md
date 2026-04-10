@@ -119,4 +119,3 @@ Este projeto utiliza o **`flake8`** para garantir a qualidade e padronização d
     ```bash
     flake8 .
     ```
-

@@ -41,14 +41,17 @@ echo "Waiting 5 seconds for background worker to process messages..."
 sleep 5
 
 # Cloud Readiness: Detect if we should use real AWS or LocalStack
-if [[ -n "${AWS_SESSION_TOKEN:-}" ]] || [[ "${AWS_ENDPOINT_URL:-}" != *"localstack"* && -n "${AWS_ENDPOINT_URL:-}" ]]; then
-  echo "Checking remote DynamoDB..."
-  aws dynamodb scan --table-name analytics-events --max-items 5 --region "${AWS_REGION:-us-east-1}"
-else
+if [[ "${AWS_ENDPOINT_URL:-}" == *"localstack"* ]]; then
   echo "Checking LocalStack DynamoDB..."
   docker exec localstack awslocal dynamodb scan \
     --table-name analytics-events \
     --max-items 5
+else
+  echo "Checking remote DynamoDB..."
+  aws dynamodb scan \
+    --table-name analytics-events \
+    --max-items 5 \
+    --region "${AWS_REGION:-us-east-1}"
 fi
 
 echo "---------------------------------------------"
