@@ -113,3 +113,4 @@ Este projeto utiliza o **`golangci-lint`** para garantir a qualidade e padroniza
     ```bash
     golangci-lint run
     ```
+
