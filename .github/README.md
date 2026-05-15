@@ -14,7 +14,7 @@ Turma: **2DCLT** — DevOps e Arquitetura Cloud Pós Tech.
 
 O vídeo técnico detalha o provisionamento via Terraform, a falha proposital na pipeline de segurança e o processo de sincronização do ArgoCD.
 
-- [Link da Demonstração (YouTube)](https://youtube.com/...) 
+- [Link da Demonstração (YouTube)](https://www.youtube.com/watch?v=UXEEftRU1LE) 
 
 ---
 
