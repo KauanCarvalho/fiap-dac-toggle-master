@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // App struct (para injeção de dependência)
@@ -17,6 +19,14 @@ type App struct {
 }
 
 func main() {
+	// Inicializa o OTel Tracer Provider
+	shutdown, err := initTracer("auth-service")
+	if err != nil {
+		log.Printf("Aviso: Falha ao inicializar tracer OTel: %v", err)
+	} else {
+		defer shutdown(context.Background())
+	}
+
 	// Carrega o .env para desenvolvimento local. Em produção, isso não fará nada.
 	_ = godotenv.Load()
 
@@ -60,7 +70,11 @@ func main() {
 	mux.Handle("/admin/keys", app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)))
 
 	log.Printf("Serviço de Autenticação (Go) rodando na porta %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	
+	// Encapsula o handler principal com OTel HTTP middleware
+	otelHandler := otelhttp.NewHandler(mux, "auth-service-http")
+	
+	if err := http.ListenAndServe(":"+port, otelHandler); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Contexto global para o Redis
@@ -28,6 +29,14 @@ type App struct {
 }
 
 func main() {
+	// Inicializa o OTel Tracer Provider
+	shutdown, err := initTracer("evaluation-service")
+	if err != nil {
+		log.Printf("Aviso: Falha ao inicializar tracer OTel: %v", err)
+	} else {
+		defer shutdown(context.Background())
+	}
+
 	_ = godotenv.Load() // Carrega .env para dev local
 
 	// --- Configuração ---
@@ -95,9 +104,10 @@ func main() {
 		log.Println("Cliente SQS inicializado com sucesso.")
 	}
 
-	// Cliente HTTP (com timeout)
+	// Cliente HTTP instrumentado com OTel para propagação de contexto trace
 	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
 
 	// Cria a instância da App
@@ -116,7 +126,11 @@ func main() {
 	mux.HandleFunc("/evaluate", app.evaluationHandler)
 
 	log.Printf("Serviço de Avaliação (Go) rodando na porta %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	
+	// Encapsula o handler principal com OTel HTTP middleware
+	otelHandler := otelhttp.NewHandler(mux, "evaluation-service-http")
+	
+	if err := http.ListenAndServe(":"+port, otelHandler); err != nil {
 		log.Fatal(err)
 	}
 }

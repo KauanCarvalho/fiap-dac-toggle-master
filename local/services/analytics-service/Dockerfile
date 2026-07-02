@@ -15,8 +15,10 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY . .
 
+RUN opentelemetry-bootstrap -a install
+
 USER nonroot
 
 EXPOSE 8005
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8005", "--workers", "2", "--timeout", "30", "app:app"]
+CMD ["opentelemetry-instrument", "gunicorn", "--bind", "0.0.0.0:8005", "--workers", "2", "--timeout", "30", "app:app"]
