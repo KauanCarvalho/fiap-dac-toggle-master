@@ -1,0 +1,60 @@
+kind: "DatadogAgent"
+apiVersion: "datadoghq.com/v2alpha1"
+metadata:
+  name: "datadog"
+  namespace: "datadog"
+spec:
+  global:
+    clusterName: "your-cluster-name-here"
+    site: "datadoghq.com"
+    credentials:
+      apiSecret:
+        secretName: "datadog-secret"
+        keyName: "api-key"
+    tags:
+      - "env:prod"
+  features:
+    clusterChecks:
+      enabled: true
+    orchestratorExplorer:
+      enabled: true
+    apm:
+      instrumentation:
+        enabled: true
+        targets:
+          - name: "default-target"
+            ddTraceVersions:
+              java: "1"
+              python: "4"
+              js: "5"
+              php: "1"
+              dotnet: "3"
+              ruby: "2"
+            ddTraceConfigs:
+              - name: "DD_RUM_ENABLED"
+                value: "true"
+              - name: "DD_RUM_APPLICATION_ID"
+                value: "ffcd3e9b-6365-4da5-ae6e-0702140bca03"
+              - name: "DD_RUM_CLIENT_TOKEN"
+                value: "pub057354ae3160c526dcfdbf2f33505cd1"
+              - name: "DD_RUM_REMOTE_CONFIGURATION_ID"
+                value: "aef110fb-6958-480d-9ec2-a51441f19211"
+              - name: "DD_RUM_SITE"
+                value: "datadoghq.com"
+    logCollection:
+      enabled: true
+      containerCollectAll: true
+    otelCollector:
+      enabled: true
+      ports:
+        - containerPort: 4317
+          hostPort: 4317
+          name: "otel-grpc"
+        - containerPort: 4318
+          hostPort: 4318
+          name: "otel-http"
+    autoscaling:
+      workload:
+        enabled: true
+    eventCollection:
+      unbundleEvents: true
