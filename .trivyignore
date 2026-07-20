@@ -1,0 +1,9 @@
+# Vulnerabilidades aceitas sem correção disponível no fornecedor
+# Revisado em: 2026-07-02
+# Referência: https://avd.aquasec.com
+
+# perl-base: Path traversal via crafted symlinks (fix_deferred — sem correção prevista)
+CVE-2026-42496
+
+# perl-base: Heap buffer overflow em regex em builds 32-bit (affected — sem correção prevista)
+CVE-2026-8376

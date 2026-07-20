@@ -85,6 +85,19 @@ jobs:
           repository: KauanCarvalho/fiap-dac-toggle-master-gitops
           token: ${{ steps.app-token.outputs.token }}
           path: gitops-repo
+          fetch-depth: 0
+
+      - name: Checkout or create target branch
+        working-directory: gitops-repo
+        run: |
+          BRANCH="${{ github.ref_name }}"
+
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git checkout "$BRANCH"
+          else
+            echo "Branch '$BRANCH' does not exist on gitops repo yet, creating it."
+            git checkout -b "$BRANCH"
+          fi
 
       - name: Update Kubernetes manifests
         run: |
@@ -103,8 +116,11 @@ jobs:
 
           git commit -m "chore: Update ${{ inputs.service_name }} image to ${{ env.TAG }}" || echo "No changes to commit"
 
+          BRANCH="${{ github.ref_name }}"
+
           for i in {1..5}; do
-            git pull --rebase origin main && git push && break
+            git pull --rebase origin "$BRANCH" || true
+            git push origin HEAD:"$BRANCH" && break
             echo "Retry $i..."
             sleep 2
           done
