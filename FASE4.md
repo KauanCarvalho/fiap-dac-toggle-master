@@ -190,13 +190,13 @@ No Datadog APM, busque em **Traces** por `service:evaluation-service resource_na
 
 ### 6.3 Relatório de Entrega (.PDF)
 
-**Equipe** — *(preencher)*
+**Equipe** 
 
-| Nome | RM | Usuário GitHub |
-|---|---|---|
-| _[PREENCHER]_ | _[PREENCHER]_ | _[PREENCHER]_ |
-| _[PREENCHER]_ | _[PREENCHER]_ | _[PREENCHER]_ |
-| _[PREENCHER]_ | _[PREENCHER]_ | _[PREENCHER]_ |
+| Nome | RM |
+| :--- | :--- |
+| Guilherme Correa Camargo | 369954 |
+| Kauan Carvalho Calasans | 370203 |
+| Pedro Henrique Coittinho Marcondes de Andrade | 369367 |
 
 **Links**
 
