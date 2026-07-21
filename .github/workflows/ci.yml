@@ -191,6 +191,12 @@ jobs:
           echo "sources=$SOURCES" >> $GITHUB_OUTPUT
           echo "Sources: $SOURCES"
 
+      - name: Set up JDK 21 (required by SonarQube Cloud)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
       - name: SonarCloud Scan (SAST)
         uses: SonarSource/sonarcloud-github-action@v2
         with:

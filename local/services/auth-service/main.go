@@ -20,11 +20,19 @@ type App struct {
 
 func main() {
 	// Inicializa o OTel Tracer Provider
-	shutdown, err := initTracer("auth-service")
+	shutdownTracer, err := initTracer("auth-service")
 	if err != nil {
 		log.Printf("Aviso: Falha ao inicializar tracer OTel: %v", err)
 	} else {
-		defer shutdown(context.Background())
+		defer shutdownTracer(context.Background())
+	}
+
+	// Inicializa o OTel Meter Provider (métricas HTTP — Fase 4)
+	shutdownMeter, err := initMeter("auth-service")
+	if err != nil {
+		log.Printf("Aviso: Falha ao inicializar meter OTel: %v", err)
+	} else {
+		defer shutdownMeter(context.Background())
 	}
 
 	// Carrega o .env para desenvolvimento local. Em produção, isso não fará nada.
@@ -70,11 +78,18 @@ func main() {
 	mux.Handle("/admin/keys", app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)))
 
 	log.Printf("Serviço de Autenticação (Go) rodando na porta %s", port)
-	
-	// Encapsula o handler principal com OTel HTTP middleware
+
+	// Métricas HTTP (Fase 4): http_requests_total / http_request_duration_seconds
+	metricsRecorder, err := newHTTPMetrics("auth-service")
+	if err != nil {
+		log.Fatalf("Falha ao criar métricas HTTP: %v", err)
+	}
+
+	// Encapsula o handler principal com OTel HTTP middleware (tracing) + métricas
 	otelHandler := otelhttp.NewHandler(mux, "auth-service-http")
-	
-	if err := http.ListenAndServe(":"+port, otelHandler); err != nil {
+	handler := metricsRecorder.middleware(otelHandler)
+
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatal(err)
 	}
 }
