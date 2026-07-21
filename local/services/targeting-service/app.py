@@ -1,12 +1,14 @@
 import os
 import sys
+import time
 import psycopg2
 import requests
 from psycopg2.extras import RealDictCursor, Json
 from psycopg2.pool import SimpleConnectionPool
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from dotenv import load_dotenv
 from functools import wraps
+from opentelemetry import metrics
 import logging
 
 
@@ -18,6 +20,37 @@ log = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
+
+# --- Métricas HTTP (Fase 4) ---
+meter = metrics.get_meter(__name__)
+
+http_requests_total = meter.create_counter(
+    name="http_requests_total",
+    description="Total de requisições HTTP recebidas",
+)
+http_request_duration_seconds = meter.create_histogram(
+    name="http_request_duration_seconds",
+    description="Duração das requisições HTTP em segundos",
+)
+
+
+@app.before_request
+def _start_metrics_timer():
+    g._metrics_start_time = time.time()
+
+
+@app.after_request
+def _record_http_metrics(response):
+    duration = time.time() - g.get("_metrics_start_time", time.time())
+    path = request.url_rule.rule if request.url_rule else request.path
+    attributes = {
+        "method": request.method,
+        "path": path,
+        "status": str(response.status_code),
+    }
+    http_requests_total.add(1, attributes)
+    http_request_duration_seconds.record(duration, attributes)
+    return response
 
 # --- Configuração ---
 DATABASE_URL = os.getenv("DATABASE_URL")
