@@ -1,159 +1,222 @@
-# Fase 4 — Instrumentação, APM e Self-Healing
+# Fase 4 — Observabilidade, APM e Self-Healing
 
-A stack de monitoramento em si (Prometheus, Loki, Grafana, OTel Collector, Datadog Agent) foi provisionada no repositório de GitOps ([fiap-dac-toggle-master-gitops](https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops)); este repositório concentra a **instrumentação do código das aplicações** e a **automação de self-healing**.
+Este documento descreve a implementação da Fase 4 do Tech Challenge (projeto ToggleMaster), dividida em dois repositórios:
+
+- **Este repositório** ([fiap-dac-toggle-master](https://github.com/KauanCarvalho/fiap-dac-toggle-master)): instrumentação de código das aplicações e automação de Self-Healing.
+- **Repositório GitOps** ([fiap-dac-toggle-master-gitops](https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops)): stack de monitoramento (Prometheus, Loki, Grafana, OTel Collector, Datadog Agent), regras de alerta, integrações (PagerDuty/Discord) e a automação serverless que conecta os alertas ao Self-Healing.
+
+> **Convenção de evidência visual:** blocos marcados **"PRINT PENDENTE"** devem ser substituídos pela imagem correspondente antes da entrega, ex.: `![Dashboard Grafana](.github/docs/grafana-dashboard.png)`.
 
 ---
 
-## 1. Instrumentação com OpenTelemetry
+## 0. Visão geral da base (Fases 1, 2 e 3)
 
-Os 5 microsserviços passaram a exportar traces via OTLP gRPC para o OTel Collector do cluster (`otel-collector.monitoring.svc.cluster.local:4317`), permitindo distributed tracing e Service Map no APM.
+O ToggleMaster é composto por 5 microsserviços conteinerizados (`auth-service`, `flag-service`, `targeting-service`, `evaluation-service`, `analytics-service`), com infraestrutura provisionada via Terraform (VPC, EKS, RDS, ElastiCache, SQS, DynamoDB, ECR), pipelines de CI/CD no GitHub Actions com DevSecOps (Trivy para SCA/scan de imagem, SonarCloud para SAST) e implantação no EKS gerenciada via GitOps (ArgoCD, 7 Applications com sync automático). A stack de observabilidade da Fase 4 roda em cima dessa base.
 
-| Serviço | Linguagem | Método | Onde |
+> **PRINT PENDENTE — Visão geral do cluster/ArgoCD**: `kubectl get nodes` + ArgoCD UI mostrando as Applications `Synced`/`Healthy`. *Sugestão: `.github/docs/overview-argocd.png`*
+
+---
+
+## 1. Monitoramento Opensource (Métricas e Logs no K8s)
+
+Stack provisionada via `helm_release` no Terraform do repositório GitOps (`terraform/production/monitoring.tf`), orquestrada pelo ArgoCD App `monitoring` ([argocd/monitoring.yaml](https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops/blob/main/argocd/monitoring.yaml)):
+
+| Componente | Chart / versão | Função |
+|---|---|---|
+| **Prometheus** | `kube-prometheus-stack` 61.3.2 | Armazenamento e consulta de métricas de infraestrutura e das aplicações (`enableRemoteWriteReceiver: true` para receber do OTel Collector) |
+| **Grafana** | incluso no `kube-prometheus-stack` | Visualização, exposto via `LoadBalancer`, datasources Prometheus + Loki provisionados automaticamente |
+| **Loki** | `grafana/loki` 6.6.4 | Centralização e indexação de logs (modo `SingleBinary`, storage filesystem) |
+| **kube-state-metrics** / **node-exporter** | incluso no `kube-prometheus-stack` | Métricas de estado dos deployments/pods e de recursos dos nodes |
+
+**Acesso rápido:**
+
+| Ferramenta | Como acessar |
+|---|---|
+| Grafana | `terraform output -raw grafana_url` (LoadBalancer público) — login `admin` / senha em `monitoring.tf` |
+| Prometheus | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` (ClusterIP) |
+| Loki | Sem UI própria — via datasource do Grafana (Explore) ou `kubectl port-forward -n monitoring svc/loki-gateway 3100:80` |
+
+### Dashboard customizado
+
+Provisionado via ConfigMap ([k8s/apps/monitoring/grafana-dashboard.yaml](https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops/blob/main/k8s/apps/monitoring/grafana-dashboard.yaml)), carregado automaticamente pelo sidecar do Grafana. Título: **"ToggleMaster — Ecosystem Health"** (uid `togglemaster-health`), com painéis de:
+
+- Pods rodando por serviço (`kube_deployment_status_replicas_available`)
+- Taxa de requisições por serviço, em req/s (`http_requests_total`)
+- Taxa de erros 5xx, em % (`http_requests_total{status=~"5.."}`)
+- Uso de CPU e memória por node (`node_cpu_seconds_total`, `node_memory_MemAvailable_bytes`)
+- Logs em tempo real (datasource Loki, filtrando pelos namespaces dos 5 microsserviços)
+- Latência p95 por serviço (`http_request_duration_seconds_bucket`)
+
+> **PRINT PENDENTE — Dashboard Grafana completo**: os painéis do "ToggleMaster — Ecosystem Health" com dado real. *Sugestão: `.github/docs/grafana-dashboard.png`*
+>
+> **PRINT PENDENTE — Painel de logs em tempo real (Loki)**: busca no Explore do Grafana filtrando por um dos namespaces dos microsserviços. *Sugestão: `.github/docs/grafana-logs-loki.png`*
+
+---
+
+## 2. OpenTelemetry (OTel) e Padronização
+
+O **OTel Collector** roda como `DaemonSet` (`helm_release.otel_collector`, chart `open-telemetry/opentelemetry-collector`) e é o único ponto de entrada de telemetria dos 5 microsserviços — nenhum deles fala diretamente com Prometheus, Loki ou Datadog. Os serviços enviam traces e métricas via OTLP (gRPC 4317 / HTTP 4318), e o Collector roteia cada sinal para o backend correto:
+
+| Pipeline | Receivers | Exporters |
+|---|---|---|
+| `traces` | `otlp` | `otlp/datadog` (Datadog Agent) |
+| `logs` | `otlp` + `filelog` (via `presets.logsCollection`, direto dos containers) | `loki` |
+| `metrics` | `otlp` + `prometheus` (self-metrics do Collector) | `prometheusremotewrite` |
+
+O Grafana Alloy não foi usado (opcional conforme o desafio); o Collector padrão da comunidade (`otel/opentelemetry-collector-contrib`) foi a escolha.
+
+> **PRINT PENDENTE — Config/pipeline do OTel Collector**: print do trecho relevante de `monitoring.tf` ou do `kubectl get configmap -n monitoring otel-collector-opentelemetry-collector-agent -o yaml`, para narrar o roteamento no vídeo. *Sugestão: `.github/docs/otel-collector-pipeline.png`*
+
+---
+
+## 3. Instrumentação e APM (Traces e Visibilidade Profunda)
+
+**Ferramenta escolhida:** Datadog (conta educacional gratuita), via `helm_release.datadog` — OTLP receiver habilitado na porta 4317, APM e coleta de logs ativos. Pipelines de log customizados (`datadog_logs_custom_pipeline`) corrigem falsos-positivos de status `ERROR` nos logs do Loki/nginx que escrevem em stderr por padrão.
+
+### Instrumentação por serviço
+
+| Serviço | Linguagem | Traces | Métricas |
 | :--- | :--- | :--- | :--- |
-| **Auth Service** | Go | SDK manual do OTel — `TracerProvider`, exporter `otlptracegrpc`, propagador `TraceContext + Baggage` | `local/services/auth-service/otel.go` |
-| **Evaluation Service** | Go | Mesma abordagem manual do Auth Service | `local/services/evaluation-service/otel.go` |
-| **Flag Service** | Python | Auto-instrumentação: `opentelemetry-bootstrap -a install` no build da imagem, entrypoint trocado para `opentelemetry-instrument gunicorn ...` | `local/services/flag-service/Dockerfile` |
-| **Targeting Service** | Python | Mesma auto-instrumentação via Dockerfile | `local/services/targeting-service/Dockerfile` |
-| **Analytics Service** | Python | Mesma auto-instrumentação via Dockerfile | `local/services/analytics-service/Dockerfile` |
+| **auth-service** | Go | SDK manual do OTel (`TracerProvider`, exporter `otlptracegrpc`, propagador `TraceContext + Baggage`), servidor envolto em `otelhttp.NewHandler` | `MeterProvider` manual (`otlpmetricgrpc`) + middleware próprio expondo `http_requests_total`/`http_request_duration_seconds` |
+| **evaluation-service** | Go | Mesma abordagem manual; servidor em `otelhttp.NewHandler` **e** cliente HTTP de saída envolto em `otelhttp.NewTransport` (propaga o trace para flag/targeting/auth-service) | Idêntico ao auth-service |
+| **flag-service** | Python | Auto-instrumentação (`opentelemetry-bootstrap` + `opentelemetry-instrument gunicorn`), pacotes `opentelemetry-instrumentation-{flask,requests,psycopg2}` | `meter.create_counter`/`create_histogram` via hooks `before_request`/`after_request` do Flask |
+| **targeting-service** | Python | Mesma auto-instrumentação | Idêntico ao flag-service |
+| **analytics-service** | Python | Mesma auto-instrumentação | Idêntico ao flag-service |
 
-O endpoint OTLP é configurável via variável de ambiente `OTEL_EXPORTER_OTLP_ENDPOINT`, com fallback para o endereço interno do cluster caso não seja definida.
+O endpoint OTLP é configurável via `OTEL_EXPORTER_OTLP_ENDPOINT` (fallback para `otel-collector.monitoring.svc.cluster.local:4317`) e o atributo `namespace` (usado pelas regras de alerta e pelo dashboard para filtrar por serviço) é injetado via `OTEL_RESOURCE_ATTRIBUTES` — ambos definidos nos 5 Deployments do repositório GitOps.
 
----
+> Antes do primeiro build após esta instrumentação, rode `go mod tidy` em `local/services/auth-service` e `local/services/evaluation-service` para resolver as dependências novas do SDK de métricas do OTel.
 
-## 2. Self-Healing (Runbook Automation)
+### Distributed Tracing
 
-Workflow [`.github/workflows/self-healing.yml`](.github/workflows/self-healing.yml) — mitiga falhas sem intervenção humana.
+Uma requisição em `/evaluate` gera um trace único, com o `evaluation-service` chamando `flag-service` e `targeting-service` (que por sua vez validam a API Key no `auth-service`) — o contexto do trace é propagado via header `traceparent` entre todas as chamadas. O trace resultante mostra spans de `evaluation-service`, `flag-service`, `targeting-service` e `auth-service` (2x, uma validação para cada serviço chamador). Passo a passo para reproduzir na seção 5.
 
-**Disparo:**
-- `repository_dispatch` (tipo `alert-firing`), esperado a partir de um webhook do AlertManager.
-- `workflow_dispatch` manual, escolhendo o serviço e o namespace a reiniciar (usado hoje para validação).
+O Service Map do Datadog é gerado automaticamente a partir desses traces, exibindo os 5 microsserviços e as chamadas entre eles.
 
-**Ação corretiva:**
-```bash
-kubectl rollout restart deployment/<service> -n <namespace>
-kubectl rollout status deployment/<service> -n <namespace> --timeout=120s
-```
-
-**Feedback:** notificação no Discord (sucesso ou falha), com link direto para a execução no GitHub Actions.
-
-> **Pendência conhecida**: o disparo automático via `repository_dispatch` ainda não está conectado ao AlertManager — falta uma ponte (ex.: Lambda com Function URL recebendo o webhook do AlertManager e chamando `POST /repos/.../dispatches`). Até essa ponte existir, o self-healing é validado via `workflow_dispatch` manual, não pelo alerta real.
+> **PRINT PENDENTE — Service Map no Datadog**: painel APM → Service Map, mostrando os 5 serviços. *Sugestão: `.github/docs/datadog-service-map.png`*
+>
+> **PRINT PENDENTE — Trace distribuído detalhado**: um trace de `GET /evaluate` no Datadog APM (Traces), com os spans de `evaluation-service`, `flag-service`, `targeting-service` e `auth-service` visíveis. *Sugestão: `.github/docs/datadog-distributed-trace.png`*
 
 ---
 
-## 3. Onde encontrar o restante da Fase 4
+## 4. Alertas Inteligentes e Self-Healing
 
-| Item | Repositório | Localização |
-| :--- | :--- | :--- |
-| Prometheus / Loki / Grafana | gitops | `terraform/production/monitoring.tf` |
-| OTel Collector (DaemonSet + pipelines) | gitops | `terraform/production/monitoring.tf` |
-| Datadog Agent | gitops | `terraform/production/monitoring.tf` |
-| Dashboard customizado do Grafana | gitops | `k8s/apps/monitoring/grafana-dashboard.yaml` |
-| Regras de Alerta (PrometheusRule) | gitops | `k8s/apps/monitoring/alert-rules.yaml` |
-| Integração PagerDuty / Discord | gitops | `terraform/production/monitoring.tf` (AlertManager config) |
+### Regras de alerta
+
+Definidas em [k8s/apps/monitoring/alert-rules.yaml](https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops/blob/main/k8s/apps/monitoring/alert-rules.yaml) (`PrometheusRule`):
+
+| Alerta | Condição |
+|---|---|
+| `AuthServiceHighErrorRate` | taxa de erros 5xx do `auth-service` > 5% por 2min |
+| `ServiceUnavailable` | qualquer um dos 5 serviços com 0 réplicas disponíveis por 1min |
+| `EvaluationServiceHighLatency` | p95 do `evaluation-service` > 2s por 2min |
+| `NodeHighCPU` | CPU de node > 80% por 5min |
+| `NodeLowMemory` | memória disponível de node < 20% por 5min |
+
+### Incident Management e ChatOps
+
+O `AlertManager` (dentro do `kube-prometheus-stack`) usa uma config injetada via Terraform (`kubernetes_secret_v1.alertmanager_config`, em `monitoring.tf`), evitando hardcode de credenciais no manifesto. Cada alerta é roteado em paralelo para até três receivers:
+
+- **Discord** (`webhook_configs`): notificação detalhada com serviço, namespace, severidade e descrição.
+- **PagerDuty** (`pagerduty_configs`): abertura automática de incidente via `routing_key`.
+- **Self-Healing** (`webhook_configs`, só para `AuthServiceHighErrorRate`, `ServiceUnavailable` e `EvaluationServiceHighLatency`): aciona a automação de mitigação descrita abaixo.
+
+> **PRINT PENDENTE — Alerta em estado Firing**: aba Alerts do Grafana (ou Prometheus) mostrando um alerta em `Firing`. *Sugestão: `.github/docs/alert-firing.png`*
+>
+> **PRINT PENDENTE — Incidente aberto no PagerDuty**. *Sugestão: `.github/docs/pagerduty-incident.png`*
+>
+> **PRINT PENDENTE — Notificação no Discord (ChatOps)**: embed com serviço/namespace/severidade/descrição. *Sugestão: `.github/docs/discord-notification.png`*
+
+### Self-Healing (Runbook Automation)
+
+A mitigação acontece em duas partes, sem intervenção humana:
+
+1. **Bridge Alertmanager → GitHub** ([terraform/production/self-healing.tf](https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops/blob/main/terraform/production/self-healing.tf), repo GitOps): uma AWS Lambda (Python, exposta via Function URL) recebe o webhook do Alertmanager, valida um token compartilhado, confirma que o alerta está `firing` e identifica o serviço afetado pelo label `namespace` do alerta. Em seguida chama a API do GitHub (`POST /repos/.../dispatches`, `event_type: alert-firing`) para acionar o workflow abaixo.
+2. **Workflow de mitigação** ([`.github/workflows/self-healing.yml`](.github/workflows/self-healing.yml), este repositório): disparado por `repository_dispatch` (ou manualmente via `workflow_dispatch`, útil para testes), executa:
+
+   ```bash
+   kubectl rollout restart deployment/<service> -n <namespace>
+   kubectl rollout status deployment/<service> -n <namespace> --timeout=120s
+   ```
+
+   e notifica o resultado (sucesso ou falha) no Discord, com link direto para a execução no GitHub Actions.
+
+**Configuração necessária** (uma vez, no repositório GitOps): gerar um GitHub PAT com permissão sobre o endpoint `dispatches` do `fiap-dac-toggle-master` e um token aleatório para o webhook, e cadastrá-los como secrets do repositório — `GH_DISPATCH_TOKEN` e `SELF_HEALING_WEBHOOK_TOKEN` — antes de rodar o `terraform apply` que provisiona a Lambda.
+
+> **PRINT PENDENTE — Execução do Self-Healing**: log do GitHub Actions mostrando o `kubectl rollout restart` + `kubectl get pods` confirmando o pod reiniciando. *Sugestão: `.github/docs/self-healing-execution.png`*
 
 ---
 
-## 4. Runbook: como testar um trace distribuído ponta a ponta
-
-Este passo a passo existe porque, ao validar o tracing em produção, descobrimos que os bancos do EKS (RDS) nunca tinham recebido o schema (`init.sql`) das aplicações — só o `docker-compose.local.yml` roda essas migrations automaticamente. Sem isso, `auth-service`, `flag-service` e `targeting-service` respondem 401/500 para qualquer chamada. Os passos abaixo já foram executados uma vez em produção (7/2026); documentamos aqui para caso um novo ambiente precise do mesmo tratamento, ou para o time entender por que essas tabelas existem sem uma migration formal no pipeline.
-
-### 4.1 Aplicar o schema no banco (se ainda não existir)
-
-Sintoma: logs do `auth-service`/`flag-service`/`targeting-service` mostrando `ERROR: relation "..." does not exist (SQLSTATE 42P01)`.
-
-Cada serviço já tem o SQL certo em `local/services/<service>/db/init.sql` (é o mesmo script que o Postgres local roda automaticamente). Para aplicar numa RDS de produção, sem migration tool formal, subimos um pod temporário com `psql` na mesma namespace do serviço e rodamos o arquivo via stdin:
+## 5. Como gerar um trace distribuído de teste
 
 ```bash
-# 1. Pegar a DATABASE_URL do serviço (host, usuário, senha, db já resolvidos)
-kubectl get secret -n <namespace> <service>-secret -o jsonpath='{.data.DATABASE_URL}' | base64 -d
-# ex: postgres://postgres:Auth123!@auth-service-db.xxxx.us-east-1.rds.amazonaws.com:5432/auth_db
-
-# 2. Subir um pod com psql na mesma namespace (extraia host/senha/db da URL acima)
-kubectl run psql-migrate -n <namespace> --image=postgres:16-alpine \
-  --env="PGPASSWORD=<senha>" --restart=Never --command -- sleep 3600
-kubectl wait -n <namespace> --for=condition=Ready pod/psql-migrate --timeout=90s
-
-# 3. Rodar o init.sql do serviço via stdin
-kubectl exec -i -n <namespace> psql-migrate -- \
-  psql -h <host-rds> -U postgres -d <database> < local/services/<service>/db/init.sql
-
-# 4. Derrubar o pod temporário
-kubectl delete pod -n <namespace> psql-migrate --force --grace-period=0
-```
-
-Repita para as 3 namespaces que têm banco próprio: `auth-service` (tabela `api_keys`, já vem com uma seed key), `flag-service` (tabela `flags`) e `targeting-service` (tabela `targeting_rules`). Os `CREATE TABLE IF NOT EXISTS` são idempotentes — rodar de novo não quebra nada.
-
-### 4.2 De onde vem a MASTER_KEY e como criar uma API Key nova
-
-O `auth-service` usa duas chaves diferentes:
-
-- **`MASTER_KEY`**: definida como secret (`auth-service-secret`, chave `MASTER_KEY`), injetada via env var. Protege o endpoint `/admin/keys`, que é o único jeito de gerar novas API Keys. Não é "criada" por um processo — é um valor fixo provisionado no Terraform/External Secrets do GitOps, igual a qualquer outro secret do projeto.
-- **API Keys de serviço** (ex.: `SERVICE_API_KEY` usada pelo `evaluation-service` para chamar `flag-service`/`targeting-service`): ficam na tabela `api_keys` (hash SHA-256, nunca em texto puro) e são validadas pelo `auth-service` no endpoint público `/validate`. A seed key `local-evaluation-service-seed-key` já vem inserida pelo `init.sql` do `auth-service` e corresponde ao valor `eval_api_key` (o mesmo valor já configurado no secret do `evaluation-service`).
-
-Para pegar a `MASTER_KEY` e gerar uma API Key nova (se precisar de uma diferente da seed):
-
-```bash
-# Pegar a MASTER_KEY
-kubectl get secret -n auth-service auth-service-secret -o jsonpath='{.data.MASTER_KEY}' | base64 -d
-
-# Criar uma nova API Key (a chave em texto puro só aparece nesta resposta, uma única vez)
-curl -X POST "<URL_PUBLICA>/auth/admin/keys" \
-  -H "Authorization: Bearer <MASTER_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"minha-chave-de-teste"}'
-```
-
-### 4.3 Como pegar a URL pública para testar
-
-O tráfego externo entra pelo `ingress-nginx`, exposto via um LoadBalancer da AWS (ELB clássico, sem domínio customizado configurado ainda). Para descobrir a URL atual:
-
-```bash
+# 1. Descobrir a URL pública (ingress-nginx, LoadBalancer da AWS)
 kubectl get svc -n ingress-nginx ingress-nginx-controller -o wide
-# Coluna EXTERNAL-IP: algo como aa4f6d6b1bc6b4702ae5864948bfcdd8-569522669.us-east-1.elb.amazonaws.com
-```
 
-> Esse hostname muda se o LoadBalancer for recriado (ex.: `terraform destroy`/`apply` do ingress-nginx). Sempre confira antes de reusar uma URL antiga.
-
-O Ingress expõe os serviços nos seguintes prefixos (ver `k8s/apps/ingress.yaml` no repo gitops):
-
-| Prefixo | Backend | Observação |
-| :--- | :--- | :--- |
-| `/auth/...` | auth-service | prefixo é removido antes de chegar no backend (rotas reais: `/health`, `/validate`, `/admin/keys`) |
-| `/targeting/...` | targeting-service | prefixo é removido (rotas reais: `/rules`, `/rules/<nome>`) |
-| `/flags/...` | flag-service | prefixo **não** é removido (rotas reais já incluem `/flags`) |
-| `/evaluate` | evaluation-service | prefixo **não** é removido (rota real é exatamente `/evaluate`) |
-| `/analytics/...` | analytics-service | só expõe `/health`; o serviço não tem API HTTP própria (consome SQS) |
-
-### 4.4 Criar uma flag + regra de teste e gerar um trace distribuído
-
-Substitua `<URL_PUBLICA>` pelo hostname do passo 4.3 e `<API_KEY>` pela seed key `eval_api_key` (ou pela sua própria, do passo 4.2).
-
-```bash
+# 2. Criar uma flag e uma regra de segmentação de teste
 URL="<URL_PUBLICA>"
 KEY="eval_api_key"
 
-# 1. Criar a flag
 curl -X POST "$URL/flags" \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"name":"minha-flag-teste","description":"flag de teste","is_enabled":true}'
+  -d '{"name":"trace-demo","description":"flag de teste","is_enabled":true}'
 
-# 2. Criar a regra de segmentação (100% dos usuários = sempre true)
 curl -X POST "$URL/targeting/rules" \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"flag_name":"minha-flag-teste","is_enabled":true,"rules":{"type":"PERCENTAGE","value":100}}'
+  -d '{"flag_name":"trace-demo","is_enabled":true,"rules":{"type":"PERCENTAGE","value":100}}'
 
-# 3. Disparar a avaliação — essa chamada gera um trace atravessando
+# 3. Disparar a avaliação — gera um trace atravessando
 #    evaluation-service -> flag-service -> auth-service
 #                        -> targeting-service -> auth-service
-curl "$URL/evaluate?user_id=qualquer-usuario&flag_name=minha-flag-teste"
+curl "$URL/evaluate?user_id=demo&flag_name=trace-demo"
 ```
 
-Exemplo real usado na validação (já criado em produção, pode reusar sem precisar dos passos 1 e 2):
+No Datadog APM, busque em **Traces** por `service:evaluation-service resource_name:"GET /evaluate"`, ordenado pelo mais recente — essa é a evidência de **Distributed Tracing** e **Service Map** pedida no Tech Challenge.
 
-```bash
-curl "http://aa4f6d6b1bc6b4702ae5864948bfcdd8-569522669.us-east-1.elb.amazonaws.com/evaluate?user_id=teste&flag_name=trace-validation-flag-teste"
-```
+---
 
-No Datadog APM, procure em **Traces** por `service:evaluation-service resource_name:"GET /evaluate"`, ordenado pelo mais recente. O trace deve mostrar spans de `evaluation-service`, `flag-service`, `targeting-service` e `auth-service` (2x, uma validação para cada serviço chamador) — essa é a evidência de **Distributed Tracing** e **Service Map** pedida no Tech Challenge.
+## 6. Entregáveis da Fase 4
 
-> Se `flag_name` não existir no banco, `flag-service`/`targeting-service` respondem 404 normalmente (não é bug) — sempre crie a flag/regra antes de testar um nome novo.
+### 6.1 Código-fonte no repositório
+
+- [x] Código IaC/GitOps com a stack de monitoramento, o OTel Collector e a bridge de Self-Healing (repositório GitOps)
+- [x] Código-fonte das aplicações instrumentado com traces e métricas (seção 3)
+- [x] Script/automação de Self-Healing (`self-healing.yml`, este repositório)
+
+### 6.2 Vídeo de demonstração — roteiro sugerido (até 25 min)
+
+- [ ] **Visão Geral** (~2 min): `kubectl get nodes`/`get pods -A`; ArgoCD UI com as Applications `Synced`/`Healthy`.
+- [ ] **Métricas, Logs e OTel** (~5 min): Grafana → dashboard "ToggleMaster — Ecosystem Health"; Explore → busca de logs no Loki; explicar o roteamento do OTel Collector (traces→Datadog, logs→Loki, metrics→Prometheus).
+- [ ] **APM e Tracing** (~5 min): Datadog APM → Service Map; requisição de teste em `/evaluate` (seção 5); abrir o Trace Distribuído gerado.
+- [ ] **Incidente e Self-Healing** (~10 min): causar um problema proposital (ex.: `kubectl scale deployment/flag-service --replicas=0`, ou derrubar o banco); mostrar o alerta `Firing` no Grafana/Alertmanager; mostrar o incidente no PagerDuty **e** a notificação no Discord; mostrar o Self-Healing sendo acionado automaticamente e o pod voltando (`kubectl get pods -w`).
+
+### 6.3 Relatório de Entrega (.PDF)
+
+**Equipe** — *(preencher)*
+
+| Nome | RM | Usuário GitHub |
+|---|---|---|
+| _[PREENCHER]_ | _[PREENCHER]_ | _[PREENCHER]_ |
+| _[PREENCHER]_ | _[PREENCHER]_ | _[PREENCHER]_ |
+| _[PREENCHER]_ | _[PREENCHER]_ | _[PREENCHER]_ |
+
+**Links**
+
+- Repositório de aplicação: https://github.com/KauanCarvalho/fiap-dac-toggle-master
+- Repositório GitOps: https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops
+- Vídeo de demonstração: _[PREENCHER]_
+
+**Evidências visuais obrigatórias** (reaproveitar os prints já sinalizados nas seções acima):
+
+1. Print do Dashboard do Grafana → seção 1 (`.github/docs/grafana-dashboard.png`)
+2. Print de um Trace distribuído no APM → seção 3 (`.github/docs/datadog-distributed-trace.png`)
+3. Print da notificação de incidente no ChatOps → seção 4 (`.github/docs/discord-notification.png`)
+4. Print do log/execução da automação de Self-Healing → seção 4 (`.github/docs/self-healing-execution.png`)
+
+**Justificativa técnica**
+
+*Arquitetura de OTel:* os 5 microsserviços exportam telemetria via OTLP (gRPC/HTTP) para um único OTel Collector rodando como DaemonSet no cluster EKS. O Collector centraliza os processors comuns (`batch`, `memory_limiter`, enriquecimento de atributos de recurso) uma única vez e faz o fan-out para três backends por tipo de sinal: traces → Datadog, logs → Loki (coletados via `filelog` receiver direto dos containers) e métricas → Prometheus (`prometheusremotewrite`). Essa arquitetura desacopla as aplicações do backend de observabilidade: trocar de APM ou de solução de métricas/logs é uma mudança de configuração no Collector, não um redeploy dos serviços.
+
+*Datadog vs. New Relic:* optamos por Datadog pela conta educacional gratuita, pela ingestão nativa via OTLP (dispensa instrumentação proprietária adicional além das bibliotecas OTel já usadas) e pela geração automática de Service Map e Distributed Tracing a partir dos mesmos traces que já alimentam o restante da stack.
+
+*PagerDuty vs. OpsGenie:* optamos por PagerDuty pela integração nativa de primeira classe no Alertmanager (`pagerduty_configs` como receiver builtin, sem necessidade de um webhook customizado) e pela conta gratuita para estudantes.
