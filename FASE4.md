@@ -5,15 +5,13 @@ Este documento descreve a implementação da Fase 4 do Tech Challenge (projeto T
 - **Este repositório** ([fiap-dac-toggle-master](https://github.com/KauanCarvalho/fiap-dac-toggle-master)): instrumentação de código das aplicações e automação de Self-Healing.
 - **Repositório GitOps** ([fiap-dac-toggle-master-gitops](https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops)): stack de monitoramento (Prometheus, Loki, Grafana, OTel Collector, Datadog Agent), regras de alerta, integrações (PagerDuty/Discord) e a automação serverless que conecta os alertas ao Self-Healing.
 
-> **Convenção de evidência visual:** blocos marcados **"PRINT PENDENTE"** devem ser substituídos pela imagem correspondente antes da entrega, ex.: `![Dashboard Grafana](.github/docs/grafana-dashboard.png)`.
-
 ---
 
 ## 0. Visão geral da base (Fases 1, 2 e 3)
 
 O ToggleMaster é composto por 5 microsserviços conteinerizados (`auth-service`, `flag-service`, `targeting-service`, `evaluation-service`, `analytics-service`), com infraestrutura provisionada via Terraform (VPC, EKS, RDS, ElastiCache, SQS, DynamoDB, ECR), pipelines de CI/CD no GitHub Actions com DevSecOps (Trivy para SCA/scan de imagem, SonarCloud para SAST) e implantação no EKS gerenciada via GitOps (ArgoCD, 7 Applications com sync automático). A stack de observabilidade da Fase 4 roda em cima dessa base.
 
-> **PRINT PENDENTE — Visão geral do cluster/ArgoCD**: `kubectl get nodes` + ArgoCD UI mostrando as Applications `Synced`/`Healthy`. *Sugestão: `.github/docs/overview-argocd.png`*
+![Visão geral do cluster/ArgoCD](.github/docs/overview-argocd.png)
 
 ---
 
@@ -47,9 +45,9 @@ Provisionado via ConfigMap ([k8s/apps/monitoring/grafana-dashboard.yaml](https:/
 - Logs em tempo real (datasource Loki, filtrando pelos namespaces dos 5 microsserviços)
 - Latência p95 por serviço (`http_request_duration_seconds_bucket`)
 
-> **PRINT PENDENTE — Dashboard Grafana completo**: os painéis do "ToggleMaster — Ecosystem Health" com dado real. *Sugestão: `.github/docs/grafana-dashboard.png`*
->
-> **PRINT PENDENTE — Painel de logs em tempo real (Loki)**: busca no Explore do Grafana filtrando por um dos namespaces dos microsserviços. *Sugestão: `.github/docs/grafana-logs-loki.png`*
+![Dashboard Grafana — ToggleMaster Ecosystem Health](.github/docs/grafana-dashboard.png)
+
+![Painel de logs em tempo real (Loki)](.github/docs/grafana-logs-loki.png)
 
 ---
 
@@ -65,7 +63,7 @@ O **OTel Collector** roda como `DaemonSet` (`helm_release.otel_collector`, chart
 
 O Grafana Alloy não foi usado (opcional conforme o desafio); o Collector padrão da comunidade (`otel/opentelemetry-collector-contrib`) foi a escolha.
 
-> **PRINT PENDENTE — Config/pipeline do OTel Collector**: print do trecho relevante de `monitoring.tf` ou do `kubectl get configmap -n monitoring otel-collector-opentelemetry-collector-agent -o yaml`, para narrar o roteamento no vídeo. *Sugestão: `.github/docs/otel-collector-pipeline.png`*
+![Config/pipeline do OTel Collector](.github/docs/otel-collector-pipeline.png)
 
 ---
 
@@ -93,9 +91,9 @@ Uma requisição em `/evaluate` gera um trace único, com o `evaluation-service`
 
 O Service Map do Datadog é gerado automaticamente a partir desses traces, exibindo os 5 microsserviços e as chamadas entre eles.
 
-> **PRINT PENDENTE — Service Map no Datadog**: painel APM → Service Map, mostrando os 5 serviços. *Sugestão: `.github/docs/datadog-service-map.png`*
->
-> **PRINT PENDENTE — Trace distribuído detalhado**: um trace de `GET /evaluate` no Datadog APM (Traces), com os spans de `evaluation-service`, `flag-service`, `targeting-service` e `auth-service` visíveis. *Sugestão: `.github/docs/datadog-distributed-trace.png`*
+![Service Map no Datadog](.github/docs/datadog-service-map.png)
+
+![Trace distribuído detalhado no Datadog APM](.github/docs/datadog-distributed-trace.png)
 
 ---
 
@@ -121,11 +119,11 @@ O `AlertManager` (dentro do `kube-prometheus-stack`) usa uma config injetada via
 - **PagerDuty** (`pagerduty_configs`): abertura automática de incidente via `routing_key`.
 - **Self-Healing** (`webhook_configs`, só para `AuthServiceHighErrorRate`, `ServiceUnavailable` e `EvaluationServiceHighLatency`): aciona a automação de mitigação descrita abaixo.
 
-> **PRINT PENDENTE — Alerta em estado Firing**: aba Alerts do Grafana (ou Prometheus) mostrando um alerta em `Firing`. *Sugestão: `.github/docs/alert-firing.png`*
->
-> **PRINT PENDENTE — Incidente aberto no PagerDuty**. *Sugestão: `.github/docs/pagerduty-incident.png`*
->
-> **PRINT PENDENTE — Notificação no Discord (ChatOps)**: embed com serviço/namespace/severidade/descrição. *Sugestão: `.github/docs/discord-notification.png`*
+![Alerta em estado Firing (EvaluationServiceHighLatency)](.github/docs/alert-firing.png)
+
+![Incidente aberto no PagerDuty](.github/docs/pagerduty-incident.png)
+
+![Notificação no Discord (ChatOps)](.github/docs/discord-notification.png)
 
 ### Self-Healing (Runbook Automation)
 
@@ -143,7 +141,7 @@ A mitigação acontece em duas partes, sem intervenção humana:
 
 **Configuração necessária** (uma vez, no repositório GitOps): gerar um GitHub PAT com permissão sobre o endpoint `dispatches` do `fiap-dac-toggle-master` e um token aleatório para o webhook, e cadastrá-los como secrets do repositório — `GH_DISPATCH_TOKEN` e `SELF_HEALING_WEBHOOK_TOKEN` — antes de rodar o `terraform apply` que provisiona a Lambda.
 
-> **PRINT PENDENTE — Execução do Self-Healing**: log do GitHub Actions mostrando o `kubectl rollout restart` + `kubectl get pods` confirmando o pod reiniciando. *Sugestão: `.github/docs/self-healing-execution.png`*
+![Execução do Self-Healing no GitHub Actions](.github/docs/self-healing-execution.png)
 
 ---
 
