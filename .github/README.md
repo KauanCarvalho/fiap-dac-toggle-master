@@ -14,7 +14,7 @@ Turma: **2DCLT** — DevOps e Arquitetura Cloud Pós Tech.
 
 O vídeo técnico detalha a stack de observabilidade (Prometheus, Loki, Grafana, OTel Collector), o APM (Datadog), os alertas inteligentes e a automação de Self-Healing em resposta a um incidente real.
 
-- Link da Demonstração (YouTube): _[PREENCHER]_
+- Link da Demonstração (YouTube): https://youtu.be/Xh8UolKAS0w
 
 ---
 
@@ -264,7 +264,7 @@ No Datadog APM, busque em **Traces** por `service:evaluation-service resource_na
 
 - Repositório de aplicação: https://github.com/KauanCarvalho/fiap-dac-toggle-master
 - Repositório GitOps: https://github.com/KauanCarvalho/fiap-dac-toggle-master-gitops
-- Vídeo de demonstração: _[PREENCHER]_
+- Vídeo de demonstração: https://youtu.be/Xh8UolKAS0w
 
 **Justificativa técnica**
 
